@@ -161,8 +161,8 @@ class _LoginScreenState extends State<LoginScreen> {
             left: 16,
             child: Image.asset(
               'assets/nymfette3-smile.png',
-              width: 64,
-              height: 64,
+              width: 640,
+              height: 640,
             ),
           ),
         ],

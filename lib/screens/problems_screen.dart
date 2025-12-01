@@ -232,14 +232,14 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Configuration', style: TextStyle(fontSize: 16)),
+        title: const Text('Configuration', style: TextStyle(fontSize: 14)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.settings, size: 18),
-              title: const Text('Server Settings', style: TextStyle(fontSize: 14)),
-              subtitle: const Text('Configure Zabbix server connection', style: TextStyle(fontSize: 11)),
+              title: const Text('Server Settings', style: TextStyle(fontSize: 12)),
+              subtitle: const Text('Configure Zabbix server connection', style: TextStyle(fontSize: 10)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/configure');
@@ -248,8 +248,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             ),
             const Divider(height: 8),
             SwitchListTile(
-              title: const Text('Ignore Acknowledged', style: TextStyle(fontSize: 14)),
-              subtitle: const Text('Hide acknowledged problems from the list', style: TextStyle(fontSize: 11)),
+              title: const Text('Ignore Acknowledged', style: TextStyle(fontSize: 12)),
+              subtitle: const Text('Hide acknowledged problems from the list', style: TextStyle(fontSize: 10)),
               value: _ignoreAcknowledged,
               onChanged: (value) {
                 _saveIgnoreAcknowledgedSetting(value);
@@ -261,14 +261,14 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             const Divider(height: 8),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
             ),
             ..._buildSeveritySwitches(context),
             const Divider(height: 8),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red, size: 18),
-              title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 14)),
-              subtitle: const Text('Sign out from current session', style: TextStyle(fontSize: 11)),
+              title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 12)),
+              subtitle: const Text('Sign out from current session', style: TextStyle(fontSize: 10)),
               onTap: () async {
                 Navigator.pop(context); // Close dialog first
                 try {
@@ -940,7 +940,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       final icon = severityIcons[severity] ?? Icons.circle_outlined;
       
       return SwitchListTile(
-        title: Text('Ignore $name', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+        title: Text('Ignore $name', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
         subtitle: null,
         value: _ignoreSeverities[severity] ?? false,
         onChanged: (value) {
@@ -948,7 +948,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         },
         secondary: Icon(icon, size: 16),
         dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: -2),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: -4),
         visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
       );
     }).toList();
