@@ -819,7 +819,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 85, child: Text('Start', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 60, child: Text('Start', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
@@ -856,7 +856,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.3))),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
                     // Severity column
@@ -877,7 +877,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 85,
+                        width: 60,
                         child: startDateTime == null 
                             ? const Text('', style: TextStyle(fontSize: 11))
                             : _buildDateTimeColumn(startDateTime),
@@ -906,8 +906,8 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                               child: Text(
                                 name,
                                 overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                                style: const TextStyle(fontSize: 12),
+                                maxLines: 2,
+                                style: const TextStyle(fontSize: 12, height: 1.2),
                               ),
                             ),
                             if (acknowledged) const SizedBox(width: 4),
