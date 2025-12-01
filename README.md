@@ -9,11 +9,15 @@ Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling use
 - 🔐 **Authentication** - Secure login with Zabbix server using saved credentials and auto-login
 - 📊 **Problems Dashboard** - Real-time monitoring of Zabbix problems with auto-refresh
 - 🔍 **Advanced Filtering** - Filter problems by severity level and hostname with persistent filters
-- 📱 **Mobile-Optimized UI** - Clean, responsive design optimized for mobile devices
+- 🔔 **Smart Notifications** - Per-severity audio notifications with custom sound selection
+- 📱 **Mobile-Optimized UI** - Ultra-compact, responsive design optimized for mobile devices
 - ⚡ **Real-time Updates** - Auto-refresh every 30 seconds with countdown timer
+- 🎵 **Audio Alerts** - Support for custom audio files and built-in notification sounds
 - 🏷️ **Problem Management** - View detailed problem information, acknowledge and close problems
 - 🖥️ **Host Mapping** - Proper hostname display instead of numeric IDs
 - 📈 **Status Indicators** - Item counts, refresh timers, and visual status feedback
+- 💾 **Persistent Settings** - User preferences and sorting maintained across sessions
+- ⚙️ **Configuration Screen** - Comprehensive settings with ignore filters and notification setup
 
 ## Screenshots
 
@@ -88,8 +92,10 @@ lib/
 - **flutter**: Mobile app framework
 - **http**: API communication with Zabbix server
 - **intl**: Date/time formatting
-- **shared_preferences**: Local storage for configuration
+- **shared_preferences**: Local storage for configuration and user preferences
 - **flutter_svg**: SVG asset support
+- **audioplayers**: Audio notification system for alerts
+- **file_picker**: Custom audio file selection from device storage
 
 ## Building for Release
 
@@ -123,7 +129,20 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Changelog
 
+### v0.3.0 (2025-12-01)
+
+- **NEW: Persistent Sorting** - Sort preferences maintained across problem view refreshes
+- **NEW: Notification System** - Per-severity audio notifications with custom sound support
+- **NEW: Configuration Screen** - Comprehensive settings with ignore filters and logout
+- **NEW: Advanced Filtering** - Acknowledged problems filter and severity ignore switches
+- Mobile layout optimization with ultra-compact design
+- Enhanced search functionality with proper focus management
+- Navigation flow improvements and UI cleanup
+- File picker integration for custom notification sounds
+- SharedPreferences integration for all user settings
+
 ### v0.1.0 (2025-12-01)
+
 - Initial release
 - Zabbix authentication with auto-login
 - Problems dashboard with real-time updates
