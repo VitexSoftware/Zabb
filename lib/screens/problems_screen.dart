@@ -295,7 +295,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       'sounds/notification.wav',
       'sounds/alert.mp3', 
       'sounds/bell.wav',
-      'sounds/chime.flac'
+      'sounds/chime.flac',
+      'sounds/explosion.mp3'
     ];
     
     showDialog(
