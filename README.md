@@ -18,6 +18,22 @@ Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling use
 - 📈 **Status Indicators** - Item counts, refresh timers, and visual status feedback
 - 💾 **Persistent Settings** - User preferences and sorting maintained across sessions
 - ⚙️ **Configuration Screen** - Comprehensive settings with ignore filters and notification setup
+- 🚨 **NEW: Problem Popup Alerts** - Immediate popup notifications when new problems are detected
+
+## Download
+
+### 📱 Mobile (Android)
+- **[Download APK](https://github.com/VitexSoftware/Zabb/releases/download/v0.3.0/zabb_0.3.0_android.apk)** (25.0MB)
+- Requires Android 5.0+ 
+- Enable "Unknown Sources" for installation
+
+### 🐧 Linux Desktop  
+- **[Download DEB Package](https://github.com/VitexSoftware/Zabb/releases/download/v0.3.0/zabb_0.3.0-1_amd64.deb)** (8.3MB)
+- For Debian/Ubuntu 64-bit systems
+- Install: `sudo dpkg -i zabb_0.3.0-1_amd64.deb`
+
+### 📦 All Releases
+- **[View All Releases](https://github.com/VitexSoftware/Zabb/releases)** on GitHub
 
 ## Screenshots
 
@@ -137,6 +153,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ### v0.3.0 (2025-12-01)
 
+- **NEW: Problem Popup Alerts** - Immediate popup notifications when new problems are detected for the first time
 - **NEW: Persistent Sorting** - Sort preferences maintained across problem view refreshes
 - **NEW: Notification System** - Per-severity audio notifications with custom sound support
 - **NEW: Configuration Screen** - Comprehensive settings with ignore filters and logout
@@ -146,6 +163,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Navigation flow improvements and UI cleanup
 - File picker integration for custom notification sounds
 - SharedPreferences integration for all user settings
+- Bell icon moved to configuration for cleaner main interface
 
 ### v0.1.0 (2025-12-01)
 
