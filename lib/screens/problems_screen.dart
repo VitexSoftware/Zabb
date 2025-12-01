@@ -60,6 +60,59 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     });
   }
 
+  void _showConfigurationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Configuration'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Server Settings'),
+              subtitle: const Text('Configure Zabbix server connection'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/configure');
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              subtitle: const Text('Sign out from current session'),
+              onTap: () async {
+                Navigator.pop(context); // Close dialog first
+                try {
+                  await _auth.logout();
+                  if (mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil(
+                      '/',
+                      (route) => false,
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Logout failed: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -146,36 +199,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           // Configuration button
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              // TODO: Navigate to configuration screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Configuration screen - coming soon')),
-              );
-            },
+            onPressed: () => _showConfigurationDialog(context),
             tooltip: 'Settings',
-          ),
-          // Logout button
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              try {
-                await _auth.logout();
-                if (mounted) {
-                  // Navigate to root and clear entire navigation stack
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/',
-                    (route) => false,
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Logout failed: $e')),
-                  );
-                }
-              }
-            },
-            tooltip: 'Logout',
           ),
         ],
       ),
@@ -737,6 +762,37 @@ class _ProblemsTableState extends State<_ProblemsTable> {
     return parts.join(' ');
   }
 
+  Widget _buildDateTimeColumn(DateTime dateTime) {
+    final now = DateTime.now();
+    final isToday = dateTime.year == now.year && 
+                   dateTime.month == now.month && 
+                   dateTime.day == now.day;
+    
+    if (isToday) {
+      // Show only time for today's events
+      return Text(
+        DateFormat('HH:mm').format(dateTime),
+        style: const TextStyle(fontSize: 11),
+      );
+    } else {
+      // Show date and time on separate lines for older events
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            DateFormat('MM-dd').format(dateTime),
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+          Text(
+            DateFormat('HH:mm').format(dateTime),
+            style: const TextStyle(fontSize: 11),
+          ),
+        ],
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('yyyy-MM-dd HH:mm');
@@ -755,23 +811,23 @@ class _ProblemsTableState extends State<_ProblemsTable> {
             columnSpacing: 12,
             columns: [
               DataColumn(
-                label: const SizedBox(width: 96, child: Text('Severity')),
+                label: const SizedBox(width: 60, child: Text('Sev', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 132, child: Text('Start')),
+                label: const SizedBox(width: 110, child: Text('Start', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 92, child: Text('Duration')),
+                label: const SizedBox(width: 80, child: Text('Duration', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const Text('Name'),
+                label: const Text('Name', style: TextStyle(fontSize: 12)),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 132, child: Text('Host')),
+                label: const SizedBox(width: 100, child: Text('Host', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
             ],
@@ -786,7 +842,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
               final p = rows[index];
               final severity = _valueInt(p['severity']);
               final clock = _valueInt(p['clock']);
-              final start = clock == 0 ? '' : df.format(DateTime.fromMillisecondsSinceEpoch(clock * 1000));
+              final startDateTime = clock == 0 ? null : DateTime.fromMillisecondsSinceEpoch(clock * 1000);
               final duration = Duration(seconds: _durationSeconds(p));
               final name = _valueString(p['name'] ?? p['message']);
               final host = _hostOf(p);
@@ -796,53 +852,46 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.3))),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Row(
                   children: [
                     // Severity column
                     SizedBox(
-                      width: 80,
-                      child: Row(
-                        children: [
-                          _SeverityDot(
-                            severity: severity,
-                            isSelected: _selectedSeverity == severity,
-                            onTap: () {
-                              final newSeverity = _selectedSeverity == severity ? null : severity;
-                              final rows = _getRowsWithFilter(newSeverity, _selectedHostname);
-                              widget.onFilterChanged(newSeverity, _selectedHostname, rows.length);
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          Text(severity.toString()),
-                        ],
+                      width: 44,
+                      child: _SeverityDot(
+                        severity: severity,
+                        isSelected: _selectedSeverity == severity,
+                        onTap: () {
+                          final newSeverity = _selectedSeverity == severity ? null : severity;
+                          final rows = _getRowsWithFilter(newSeverity, _selectedHostname);
+                          widget.onFilterChanged(newSeverity, _selectedHostname, rows.length);
+                        },
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    // Start column
+                    const SizedBox(width: 12),
+                    // Start column with responsive formatting
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 120, 
-                        child: Text(
-                          start, 
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
+                        width: 98,
+                        child: startDateTime == null 
+                            ? const Text('', style: TextStyle(fontSize: 11))
+                            : _buildDateTimeColumn(startDateTime),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     // Duration column
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 80, 
+                        width: 68, 
                         child: Text(
                           _formatDuration(duration), 
-                          style: Theme.of(context).textTheme.bodySmall,
+                          style: const TextStyle(fontSize: 11),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     // Name column (expandable)
                     Expanded(
                       child: GestureDetector(
@@ -854,19 +903,19 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                                 name,
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
-                                style: Theme.of(context).textTheme.bodyMedium,
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
-                            if (acknowledged) const SizedBox(width: 6),
-                            if (acknowledged) const Text('✅'),
+                            if (acknowledged) const SizedBox(width: 4),
+                            if (acknowledged) const Text('✅', style: TextStyle(fontSize: 10)),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // Host column - match header width (132)
+                    const SizedBox(width: 8),
+                    // Host column - compact mobile layout
                     SizedBox(
-                      width: 132,
+                      width: 100,
                       child: GestureDetector(
                         onTap: () {
                           final newHostname = _selectedHostname == host ? null : host;
@@ -874,27 +923,20 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                           widget.onFilterChanged(_selectedSeverity, newHostname, rows.length);
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
                           decoration: BoxDecoration(
                             color: _selectedHostname == host ? Colors.blue.withOpacity(0.1) : null,
                             border: _selectedHostname == host ? Border.all(color: Colors.blue, width: 1) : null,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  host,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: _selectedHostname == host ? Colors.blue : Colors.black,
-                                    fontWeight: _selectedHostname == host ? FontWeight.bold : null,
-                                  ),
-                                ),
-                              ),
-                              if (_selectedHostname == host)
-                                const Icon(Icons.filter_alt, size: 16, color: Colors.blue),
-                            ],
+                          child: Text(
+                            host,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: _selectedHostname == host ? Colors.blue : Colors.black87,
+                              fontWeight: _selectedHostname == host ? FontWeight.bold : null,
+                            ),
                           ),
                         ),
                       ),
