@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
 
 class ProblemsScreen extends StatefulWidget {
@@ -26,12 +27,29 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   int? _selectedSeverity;
   String? _selectedHostname;
   String _searchQuery = '';
+  bool _ignoreAcknowledged = true; // Default enabled to hide acknowledged problems
 
   @override
   void initState() {
     super.initState();
     _future = _auth.fetchProblems();
     _startRefreshTimer();
+    _loadIgnoreAcknowledgedSetting();
+  }
+
+  Future<void> _loadIgnoreAcknowledgedSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _ignoreAcknowledged = prefs.getBool('ignore_acknowledged') ?? true;
+    });
+  }
+
+  Future<void> _saveIgnoreAcknowledgedSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ignore_acknowledged', value);
+    setState(() {
+      _ignoreAcknowledged = value;
+    });
   }
 
   @override
@@ -78,6 +96,17 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/configure');
               },
+            ),
+            const Divider(),
+            SwitchListTile(
+              title: const Text('Ignore Acknowledged'),
+              subtitle: const Text('Hide acknowledged problems from the list'),
+              value: _ignoreAcknowledged,
+              onChanged: (value) {
+                _saveIgnoreAcknowledgedSetting(value);
+                Navigator.pop(context);
+              },
+              secondary: const Icon(Icons.visibility_off),
             ),
             const Divider(),
             ListTile(
@@ -241,6 +270,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             selectedSeverity: _selectedSeverity,
             selectedHostname: _selectedHostname,
             searchQuery: _searchQuery,
+            ignoreAcknowledged: _ignoreAcknowledged,
             onFilterChanged: (severity, hostname, filteredCount) {
               setState(() {
                 _selectedSeverity = severity;
@@ -634,6 +664,7 @@ class _ProblemsTable extends StatefulWidget {
   final int? selectedSeverity;
   final String? selectedHostname;
   final String searchQuery;
+  final bool ignoreAcknowledged;
   final void Function(int?, String?, int) onFilterChanged;
   
   const _ProblemsTable({
@@ -643,6 +674,7 @@ class _ProblemsTable extends StatefulWidget {
     required this.selectedSeverity,
     required this.selectedHostname,
     required this.searchQuery,
+    required this.ignoreAcknowledged,
     required this.onFilterChanged,
   });
 
@@ -701,6 +733,14 @@ class _ProblemsTableState extends State<_ProblemsTable> {
     // Apply hostname filter if one is selected
     if (hostnameFilter != null) {
       rows = rows.where((item) => _hostOf(item) == hostnameFilter).toList();
+    }
+    
+    // Apply acknowledged filter if enabled
+    if (widget.ignoreAcknowledged) {
+      rows = rows.where((item) {
+        final acknowledges = item['acknowledges'] as List?;
+        return acknowledges == null || acknowledges.isEmpty;
+      }).toList();
     }
     
     rows.sort((a, b) {
