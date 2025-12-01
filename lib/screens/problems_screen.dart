@@ -36,6 +36,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   // Notification settings
   bool _notificationsEnabled = true;
   String _selectedSoundFile = '';
+  Map<int, String> _severitySounds = {};
   final AudioPlayer _audioPlayer = AudioPlayer();
   Set<String> _knownProblemIds = {};
   
@@ -128,6 +129,11 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     setState(() {
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
       _selectedSoundFile = prefs.getString('selected_sound_file') ?? '';
+      
+      // Load severity-specific sounds
+      for (int severity = 0; severity <= 5; severity++) {
+        _severitySounds[severity] = prefs.getString('severity_sound_$severity') ?? '';
+      }
     });
   }
 
@@ -135,6 +141,11 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notifications_enabled', _notificationsEnabled);
     await prefs.setString('selected_sound_file', _selectedSoundFile);
+    
+    // Save severity-specific sounds
+    for (int severity = 0; severity <= 5; severity++) {
+      await prefs.setString('severity_sound_$severity', _severitySounds[severity] ?? '');
+    }
   }
 
   Future<void> _playNotificationSound() async {
@@ -151,6 +162,21 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     }
   }
 
+  Future<void> _playNotificationSoundForSeverity(int severity) async {
+    final soundFile = _severitySounds[severity] ?? _selectedSoundFile;
+    if (soundFile.isNotEmpty) {
+      try {
+        if (soundFile.startsWith('sounds/')) {
+          await _audioPlayer.play(AssetSource(soundFile));
+        } else {
+          await _audioPlayer.play(DeviceFileSource(soundFile));
+        }
+      } catch (e) {
+        print('Error playing severity notification sound: $e');
+      }
+    }
+  }
+
   void _checkForNewProblems(List<Map<String, dynamic>> problems) {
     if (!_notificationsEnabled) return;
     
@@ -158,7 +184,17 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     final newProblems = currentProblemIds.difference(_knownProblemIds);
     
     if (newProblems.isNotEmpty && _knownProblemIds.isNotEmpty) {
-      _playNotificationSound();
+      // Find the highest severity of new problems
+      int highestSeverity = 0;
+      for (final problem in problems) {
+        if (newProblems.contains(problem['eventid'].toString())) {
+          final severity = int.tryParse(problem['priority'].toString()) ?? 0;
+          if (severity > highestSeverity) {
+            highestSeverity = severity;
+          }
+        }
+      }
+      _playNotificationSoundForSeverity(highestSeverity);
     }
     
     _knownProblemIds = currentProblemIds;
@@ -245,56 +281,23 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     );
   }
 
-  void _showNotificationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Notification Settings', style: TextStyle(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SwitchListTile(
-              title: const Text('Enable Notifications', style: TextStyle(fontSize: 14)),
-              subtitle: const Text('Play sound for new problems', style: TextStyle(fontSize: 11)),
-              value: _notificationsEnabled,
-              onChanged: (value) {
-                setState(() {
-                  _notificationsEnabled = value;
-                });
-                _saveNotificationSettings();
-              },
-              dense: true,
-            ),
-            const Divider(height: 8),
-            ListTile(
-              leading: const Icon(Icons.audiotrack, size: 18),
-              title: const Text('Select Sound File', style: TextStyle(fontSize: 14)),
-              subtitle: Text(
-                _selectedSoundFile.isEmpty 
-                    ? 'No file selected' 
-                    : _selectedSoundFile.startsWith('sounds/')
-                        ? _selectedSoundFile.split('/').last
-                        : _selectedSoundFile.split('/').last,
-                style: const TextStyle(fontSize: 11),
-              ),
-              dense: true,
-              onTap: _notificationsEnabled ? () => _selectSoundFile(context) : null,
-            ),
-            if (_selectedSoundFile.isNotEmpty)
-              ListTile(
-                leading: const Icon(Icons.play_arrow, size: 18),
-                title: const Text('Test Sound', style: TextStyle(fontSize: 14)),
-                dense: true,
-                onTap: _playNotificationSound,
-              ),
-          ],
+  void _showNotificationConfigScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _NotificationConfigScreen(
+          notificationsEnabled: _notificationsEnabled,
+          selectedSoundFile: _selectedSoundFile,
+          severitySounds: Map.from(_severitySounds),
+          onSettingsChanged: (enabled, defaultSound, severitySounds) {
+            setState(() {
+              _notificationsEnabled = enabled;
+              _selectedSoundFile = defaultSound;
+              _severitySounds = Map.from(severitySounds);
+            });
+            _saveNotificationSettings();
+          },
+          audioPlayer: _audioPlayer,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -475,7 +478,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
               size: 20,
             ),
-            onPressed: () => _showNotificationDialog(context),
+            onPressed: () => _showNotificationConfigScreen(context),
             tooltip: 'Notifications',
           ),
           // Configuration button
@@ -1343,5 +1346,338 @@ class _SeverityDot extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _NotificationConfigScreen extends StatefulWidget {
+  final bool notificationsEnabled;
+  final String selectedSoundFile;
+  final Map<int, String> severitySounds;
+  final Function(bool, String, Map<int, String>) onSettingsChanged;
+  final AudioPlayer audioPlayer;
+
+  const _NotificationConfigScreen({
+    required this.notificationsEnabled,
+    required this.selectedSoundFile,
+    required this.severitySounds,
+    required this.onSettingsChanged,
+    required this.audioPlayer,
+  });
+
+  @override
+  State<_NotificationConfigScreen> createState() => _NotificationConfigScreenState();
+}
+
+class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
+  late bool _notificationsEnabled;
+  late String _defaultSoundFile;
+  late Map<int, String> _severitySounds;
+
+  final Map<int, String> _severityNames = {
+    0: 'Not classified',
+    1: 'Information',
+    2: 'Warning', 
+    3: 'Average',
+    4: 'High',
+    5: 'Disaster',
+  };
+
+  final Map<int, IconData> _severityIcons = {
+    0: Icons.help_outline,
+    1: Icons.info_outline,
+    2: Icons.warning_amber_outlined,
+    3: Icons.error_outline,
+    4: Icons.priority_high,
+    5: Icons.dangerous_outlined,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationsEnabled = widget.notificationsEnabled;
+    _defaultSoundFile = widget.selectedSoundFile;
+    _severitySounds = Map.from(widget.severitySounds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notification Settings', style: TextStyle(fontSize: 16)),
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // General notification toggle
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Enable Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      subtitle: const Text('Play sounds for new Zabbix problems', style: TextStyle(fontSize: 13)),
+                      value: _notificationsEnabled,
+                      onChanged: (value) {
+                        setState(() {
+                          _notificationsEnabled = value;
+                        });
+                        _saveSettings();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            if (_notificationsEnabled) ...[
+              const SizedBox(height: 16),
+              
+              // Default sound selection
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Default Sound', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: const Icon(Icons.audiotrack),
+                        title: const Text('Select Default Sound'),
+                        subtitle: Text(_getDisplayName(_defaultSoundFile)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_defaultSoundFile.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.play_arrow),
+                                onPressed: () => _testSound(_defaultSoundFile),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () => _selectSoundForDefault(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Per-severity sound configuration
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Severity-Specific Sounds', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text('Override default sound for specific problem severities', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      const SizedBox(height: 12),
+                      ..._severityNames.entries.map((entry) {
+                        final severity = entry.key;
+                        final name = entry.value;
+                        final icon = _severityIcons[severity] ?? Icons.circle_outlined;
+                        final soundFile = _severitySounds[severity] ?? '';
+                        
+                        return ListTile(
+                          leading: Icon(icon, size: 20),
+                          title: Text(name, style: const TextStyle(fontSize: 14)),
+                          subtitle: Text(
+                            soundFile.isEmpty ? 'Use default sound' : _getDisplayName(soundFile),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (soundFile.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.play_arrow, size: 18),
+                                  onPressed: () => _testSound(soundFile),
+                                ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, size: 18),
+                                onSelected: (value) {
+                                  if (value == 'select') {
+                                    _selectSoundForSeverity(severity);
+                                  } else if (value == 'clear') {
+                                    _clearSeveritySound(severity);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'select',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.audiotrack, size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Select Sound'),
+                                      ],
+                                    ),
+                                  ),
+                                  if (soundFile.isNotEmpty)
+                                    const PopupMenuItem(
+                                      value: 'clear',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.clear, size: 16),
+                                          SizedBox(width: 8),
+                                          Text('Use Default'),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          dense: true,
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getDisplayName(String soundFile) {
+    if (soundFile.isEmpty) return 'No sound selected';
+    if (soundFile.startsWith('sounds/')) {
+      return soundFile.split('/').last;
+    }
+    return soundFile.split('/').last;
+  }
+
+  Future<void> _testSound(String soundFile) async {
+    try {
+      if (soundFile.startsWith('sounds/')) {
+        await widget.audioPlayer.play(AssetSource(soundFile));
+      } else {
+        await widget.audioPlayer.play(DeviceFileSource(soundFile));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error playing sound: $e')),
+        );
+      }
+    }
+  }
+
+  void _selectSoundForDefault() async {
+    final result = await _showSoundSelectionDialog();
+    if (result != null) {
+      setState(() {
+        _defaultSoundFile = result;
+      });
+      _saveSettings();
+    }
+  }
+
+  void _selectSoundForSeverity(int severity) async {
+    final result = await _showSoundSelectionDialog();
+    if (result != null) {
+      setState(() {
+        _severitySounds[severity] = result;
+      });
+      _saveSettings();
+    }
+  }
+
+  void _clearSeveritySound(int severity) {
+    setState(() {
+      _severitySounds[severity] = '';
+    });
+    _saveSettings();
+  }
+
+  Future<String?> _showSoundSelectionDialog() async {
+    final soundOptions = [
+      'sounds/notification.wav',
+      'sounds/alert.mp3',
+      'sounds/bell.wav', 
+      'sounds/chime.flac',
+      'sounds/explosion.mp3'
+    ];
+
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Sound'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...soundOptions.map((sound) => ListTile(
+              leading: const Icon(Icons.music_note, size: 18),
+              title: Text(sound.split('/').last),
+              onTap: () => Navigator.pop(context, sound),
+              dense: true,
+            )),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder_open, size: 18),
+              title: const Text('Browse Files...'),
+              onTap: () async {
+                Navigator.pop(context);
+                final customFile = await _pickCustomSoundFile();
+                if (customFile != null) {
+                  Navigator.of(context).pop(customFile);
+                }
+              },
+              dense: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _pickCustomSoundFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final filePath = result.files.single.path!;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Selected: ${result.files.single.name}')),
+          );
+        }
+        return filePath;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error selecting file')),
+        );
+      }
+    }
+    return null;
+  }
+
+  void _saveSettings() {
+    widget.onSettingsChanged(_notificationsEnabled, _defaultSoundFile, _severitySounds);
   }
 }
