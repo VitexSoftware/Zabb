@@ -22,18 +22,17 @@ Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling use
 ## Screenshots
 
 ### Problems Dashboard
-![Problems Screen](problems.png)
+
+![Problems Screen](screenshots/problems.png?raw=true)
 
 ### Configuration Dialog  
-![Configuration Screen](configuration.png)
+
+![Configuration Screen](screenshots/configuration.png?raw=true)
 
 ### Server Configuration
-![Server Configuration](server_config.png)
 
-### Application Overview
-![Application Screenshot](screenshot.png)
+![Server Configuration](screenshots/server_config.png?raw=true)
 
-The application features:
 - **Login Screen** - With server configuration and auto-login capability
 - **Problems Table** - Sortable columns with severity indicators, duration, and host information
 - **Problem Details** - Comprehensive problem information with action buttons
@@ -51,15 +50,20 @@ The application features:
 
 1. Ensure you have Flutter installed: <https://docs.flutter.dev/get-started/install>
 2. Clone this repository:
+
    ```bash
    git clone https://github.com/VitexSoftware/Zabb.git
    cd Zabb
    ```
+
 3. Install dependencies:
+
    ```bash
    flutter pub get
    ```
+
 4. Run the application:
+
    ```bash
    flutter run
    ```
@@ -100,11 +104,13 @@ lib/
 ## Building for Release
 
 ### Android
+
 ```bash
 flutter build apk --release
 ```
 
 ### Linux Desktop
+
 ```bash
 flutter build linux --release
 ```
