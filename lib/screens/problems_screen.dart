@@ -69,6 +69,45 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             SvgPicture.asset('assets/zabb.svg', height: 24, width: 24),
             const SizedBox(width: 8),
             const Text('Problems'),
+            const SizedBox(width: 16),
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.9),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    hintStyle: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase();
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
           ],
         ),
         actions: [
@@ -140,86 +179,48 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Search bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search by problem name or hostname...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              onChanged: (value) {
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            // Print errors to stdout for easier debugging on Linux
+            // ignore: avoid_print
+            print('ProblemsScreen error: ${snapshot.error}');
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          final items = snapshot.data ?? const [];
+          
+          if (items.isEmpty) {
+            // Update item count for empty list
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _itemCount != 0) {
                 setState(() {
-                  _searchQuery = value.toLowerCase();
+                  _itemCount = 0;
                 });
-              },
-            ),
-          ),
-          // Problems table
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  // Print errors to stdout for easier debugging on Linux
-                  // ignore: avoid_print
-                  print('ProblemsScreen error: ${snapshot.error}');
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                final items = snapshot.data ?? const [];
-                
-                if (items.isEmpty) {
-                  // Update item count for empty list
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && _itemCount != 0) {
-                      setState(() {
-                        _itemCount = 0;
-                      });
-                    }
-                  });
-                  return const Center(child: Text('No problems'));
-                }
-                // Build a sortable table view of problems
-                return _ProblemsTable(
-                  items: items, 
-                  onDetails: (p) => _showDetails(context, p),
-                  onRefresh: _refreshData,
-                  selectedSeverity: _selectedSeverity,
-                  selectedHostname: _selectedHostname,
-                  searchQuery: _searchQuery,
-                  onFilterChanged: (severity, hostname, filteredCount) {
-                    setState(() {
-                      _selectedSeverity = severity;
-                      _selectedHostname = hostname;
-                      _itemCount = filteredCount;
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+              }
+            });
+            return const Center(child: Text('No problems'));
+          }
+          // Build a sortable table view of problems
+          return _ProblemsTable(
+            items: items, 
+            onDetails: (p) => _showDetails(context, p),
+            onRefresh: _refreshData,
+            selectedSeverity: _selectedSeverity,
+            selectedHostname: _selectedHostname,
+            searchQuery: _searchQuery,
+            onFilterChanged: (severity, hostname, filteredCount) {
+              setState(() {
+                _selectedSeverity = severity;
+                _selectedHostname = hostname;
+                _itemCount = filteredCount;
+              });
+            },
+          );
+        },
       ),
     );
   }
