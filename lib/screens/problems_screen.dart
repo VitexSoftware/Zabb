@@ -40,6 +40,10 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   Set<String> _knownProblemIds = {};
   
+  // Sort settings that persist across refreshes
+  String _sortBy = 'clock'; // Default sort by time
+  bool _sortAscending = false; // Default newest first
+  
   // Severity ignore settings (default: show all severities)
   Map<int, bool> _ignoreSeverities = {
     0: false, // Not classified
@@ -58,6 +62,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _loadIgnoreAcknowledgedSetting();
     _loadIgnoreSeveritySettings();
     _loadNotificationSettings();
+    _loadSortSettings();
     _initializeKnownProblems();
   }
 
@@ -83,6 +88,20 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         _ignoreSeverities[severity] = prefs.getBool('ignore_severity_$severity') ?? false;
       }
     });
+  }
+
+  Future<void> _loadSortSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _sortBy = prefs.getString('sort_by') ?? 'clock';
+      _sortAscending = prefs.getBool('sort_ascending') ?? false;
+    });
+  }
+
+  Future<void> _saveSortSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sort_by', _sortBy);
+    await prefs.setBool('sort_ascending', _sortAscending);
   }
 
   Future<void> _saveIgnoreSeveritySetting(int severity, bool value) async {
@@ -524,6 +543,15 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             searchQuery: _searchQuery,
             ignoreAcknowledged: _ignoreAcknowledged,
             ignoreSeverities: _ignoreSeverities,
+            sortBy: _sortBy,
+            sortAscending: _sortAscending,
+            onSortChanged: (sortBy, ascending) {
+              setState(() {
+                _sortBy = sortBy;
+                _sortAscending = ascending;
+              });
+              _saveSortSettings();
+            },
             onFilterChanged: (severity, hostname, filteredCount) {
               setState(() {
                 _selectedSeverity = severity;
@@ -960,7 +988,12 @@ class _ProblemsTable extends StatefulWidget {
   final Map<int, bool> ignoreSeverities;
   final void Function(int?, String?, int) onFilterChanged;
   
+  final String sortBy;
+  final bool sortAscending;
+  final Function(String, bool) onSortChanged;
+  
   const _ProblemsTable({
+    Key? key,
     required this.items, 
     required this.onDetails, 
     required this.onRefresh,
@@ -970,15 +1003,18 @@ class _ProblemsTable extends StatefulWidget {
     required this.ignoreAcknowledged,
     required this.ignoreSeverities,
     required this.onFilterChanged,
-  });
+    required this.sortBy,
+    required this.sortAscending,
+    required this.onSortChanged,
+  }) : super(key: key);
 
   @override
   State<_ProblemsTable> createState() => _ProblemsTableState();
 }
 
 class _ProblemsTableState extends State<_ProblemsTable> {
-  int _sortColumnIndex = 0;
-  bool _sortAscending = false; // default DESC by severity
+  late int _sortColumnIndex;
+  late bool _sortAscending;
   
   int? get _selectedSeverity => widget.selectedSeverity;
   String? get _selectedHostname => widget.selectedHostname;
@@ -986,6 +1022,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
   @override
   void initState() {
     super.initState();
+    _updateSortFromWidget();
     // Notify parent of initial filtered count
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final rows = _rows;
@@ -996,13 +1033,57 @@ class _ProblemsTableState extends State<_ProblemsTable> {
   @override
   void didUpdateWidget(_ProblemsTable oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _updateSortFromWidget();
     // Notify parent when widget updates (after refresh)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final rows = _rows;
       widget.onFilterChanged(_selectedSeverity, _selectedHostname, rows.length);
     });
   }
-
+  
+  void _updateSortFromWidget() {
+    // Map sortBy string to column index
+    switch (widget.sortBy) {
+      case 'priority':
+        _sortColumnIndex = 0;
+        break;
+      case 'clock':
+        _sortColumnIndex = 1;
+        break;
+      case 'name':
+        _sortColumnIndex = 2;
+        break;
+      default:
+        _sortColumnIndex = 0;
+    }
+    _sortAscending = widget.sortAscending;
+  }
+  
+  void _updateSort(int columnIndex, bool ascending) {
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+    });
+    
+    // Notify parent of sort changes
+    String sortBy;
+    switch (columnIndex) {
+      case 0:
+        sortBy = 'priority';
+        break;
+      case 1:
+        sortBy = 'clock';
+        break;
+      case 2:
+      case 3: // Name column
+        sortBy = 'name';
+        break;
+      default:
+        sortBy = 'priority';
+    }
+    widget.onSortChanged(sortBy, ascending);
+  }
+  
   List<Map<String, dynamic>> get _rows {
     return _getRowsWithFilter(_selectedSeverity, _selectedHostname);
   }
@@ -1157,23 +1238,23 @@ class _ProblemsTableState extends State<_ProblemsTable> {
             columns: [
               DataColumn(
                 label: const SizedBox(width: 32, child: Text('Sev', style: TextStyle(fontSize: 12))),
-                onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
+                onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
                 label: const SizedBox(width: 50, child: Text('Start', style: TextStyle(fontSize: 12))),
-                onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
+                onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
                 label: const SizedBox(width: 60, child: Text('Duration', style: TextStyle(fontSize: 12))),
-                onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
+                onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
                 label: const Text('Name', style: TextStyle(fontSize: 12)),
-                onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
+                onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
                 label: const SizedBox(width: 80, child: Text('Host', style: TextStyle(fontSize: 12))),
-                onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
+                onSort: (i, asc) => _updateSort(i, asc),
               ),
             ],
             rows: const [], // Empty header table
