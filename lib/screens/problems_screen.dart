@@ -883,7 +883,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                             : _buildDateTimeColumn(startDateTime),
                       ),
                     ),
-                    const SizedBox(width: 2),
+                    const SizedBox(width: 8),
                     // Duration column
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
