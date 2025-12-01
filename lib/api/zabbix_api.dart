@@ -1,13 +1,25 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 class ZabbixApi {
-  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? http.Client();
+  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? _createClient();
 
   final String serverUrl; // e.g. https://your-zabbix.example.com
   final http.Client _client;
   String? _authToken;
   int _requestId = 1;
+
+  static http.Client _createClient() {
+    final client = HttpClient();
+    // Allow bad certificates for testing - in production, you should use proper certificates
+    client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    // Set a reasonable timeout
+    client.connectionTimeout = const Duration(seconds: 30);
+    return IOClient(client);
+  }
 
   bool get isAuthenticated => _authToken != null;
   String? get authToken => _authToken;
@@ -49,29 +61,47 @@ class ZabbixApi {
       'params': params,
       'id': _requestId++,
     });
-    final resp = await _client.post(
-      _endpoint,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        if (auth != null && auth.isNotEmpty) 'Authorization': 'Bearer $auth',
-      },
-      body: body,
-    );
-    if (resp.statusCode != 200) {
-      // Print to stdout for easier debugging on Linux
-      // ignore: avoid_print
-      print('HTTP error ${resp.statusCode}: ${resp.body}');
-      throw ZabbixApiException('HTTP ${resp.statusCode}', {'body': resp.body});
+    
+    try {
+      final resp = await _client.post(
+        _endpoint,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          if (auth != null && auth.isNotEmpty) 'Authorization': 'Bearer $auth',
+        },
+        body: body,
+      ).timeout(const Duration(seconds: 30));
+      
+      if (resp.statusCode != 200) {
+        // Print to stdout for easier debugging on Linux
+        // ignore: avoid_print
+        print('HTTP error ${resp.statusCode}: ${resp.body}');
+        throw ZabbixApiException('HTTP ${resp.statusCode}', {'body': resp.body});
+      }
+      final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (decoded.containsKey('error')) {
+        // Print to stdout for easier debugging on Linux
+        // ignore: avoid_print
+        print('Zabbix API error: ${jsonEncode(decoded['error'])}');
+        throw ZabbixApiException('API error', decoded['error'] as Map<String, dynamic>);
+      }
+      return decoded;
+    } catch (e) {
+      if (e is ZabbixApiException) rethrow;
+      
+      // Handle common network errors with user-friendly messages
+      String userMessage = 'Network error: ${e.toString()}';
+      if (e.toString().contains('SocketException') || e.toString().contains('Failed host lookup')) {
+        userMessage = 'Cannot reach server. Please check:\n• Internet connection\n• Server URL is correct\n• Server is accessible from your network';
+      } else if (e.toString().contains('TimeoutException')) {
+        userMessage = 'Connection timeout. Server may be slow or unreachable.';
+      } else if (e.toString().contains('HandshakeException') || e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+        userMessage = 'SSL certificate error. Server certificate may be invalid or self-signed.';
+      }
+      
+      throw ZabbixApiException(userMessage, {'original_error': e.toString(), 'endpoint': _endpoint.toString()});
     }
-    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
-    if (decoded.containsKey('error')) {
-      // Print to stdout for easier debugging on Linux
-      // ignore: avoid_print
-      print('Zabbix API error: ${jsonEncode(decoded['error'])}');
-      throw ZabbixApiException('API error', decoded['error'] as Map<String, dynamic>);
-    }
-    return decoded;
   }
 
   Future<List<Map<String, dynamic>>> getHosts({List<String>? hostIds}) async {

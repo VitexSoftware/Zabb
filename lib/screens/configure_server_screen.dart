@@ -57,11 +57,31 @@ class _ConfigureServerScreenState extends State<ConfigureServerScreen> {
     setState(() => _saving = false);
     if (!mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login failed: $error')),
+      // Show a more detailed error dialog instead of just a snackbar
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Connection Failed'),
+          content: SingleChildScrollView(
+            child: Text(
+              error!,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     } else {
-      Navigator.pop(context, true);
+      // Configuration successful - navigate directly to problems screen
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/problems',
+        (route) => false,
+      );
     }
   }
 

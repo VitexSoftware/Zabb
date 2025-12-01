@@ -25,6 +25,7 @@ class ZabbixApp extends StatelessWidget {
         '/welcome': (context) => const WelcomeScreen(),
         '/configure': (context) => const ConfigureServerScreen(),
         '/login': (context) => const LoginScreen(),
+        '/problems': (context) => const ProblemsScreen(),
       },
       home: const _RootRouter(),
     );
