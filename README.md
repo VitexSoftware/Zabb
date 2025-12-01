@@ -17,11 +17,23 @@ Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling use
 
 ## Screenshots
 
+### Problems Dashboard
+![Problems Screen](problems.png)
+
+### Configuration Dialog  
+![Configuration Screen](configuration.png)
+
+### Server Configuration
+![Server Configuration](server_config.png)
+
+### Application Overview
+![Application Screenshot](screenshot.png)
+
 The application features:
 - **Login Screen** - With server configuration and auto-login capability
 - **Problems Table** - Sortable columns with severity indicators, duration, and host information
 - **Problem Details** - Comprehensive problem information with action buttons
-- **Filtering System** - Interactive severity and hostname filtering
+- **Filtering System** - Interactive severity and hostname filtering with ignore options
 
 ## Getting Started
 

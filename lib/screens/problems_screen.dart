@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
@@ -28,6 +30,13 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   String? _selectedHostname;
   String _searchQuery = '';
   bool _ignoreAcknowledged = true; // Default enabled to hide acknowledged problems
+  int _refreshInterval = 30; // Default 30 seconds
+  
+  // Notification settings
+  bool _notificationsEnabled = true;
+  String _selectedSoundFile = '';
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  Set<String> _knownProblemIds = {};
   
   // Severity ignore settings (default: show all severities)
   Map<int, bool> _ignoreSeverities = {
@@ -46,6 +55,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _startRefreshTimer();
     _loadIgnoreAcknowledgedSetting();
     _loadIgnoreSeveritySettings();
+    _loadNotificationSettings();
+    _initializeKnownProblems();
   }
 
   Future<void> _loadIgnoreAcknowledgedSetting() async {
@@ -89,7 +100,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   }
 
   void _startRefreshTimer() {
-    _countdownSeconds = 30;
+    _countdownSeconds = _refreshInterval;
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -103,50 +114,101 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
 
   void _refreshData() {
     setState(() {
-      _future = _auth.fetchProblems();
+      _future = _auth.fetchProblems().then((problems) {
+        _checkForNewProblems(problems);
+        return problems;
+      });
       _startRefreshTimer();
     });
+  }
+
+  Future<void> _loadNotificationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+      _selectedSoundFile = prefs.getString('selected_sound_file') ?? '';
+    });
+  }
+
+  Future<void> _saveNotificationSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', _notificationsEnabled);
+    await prefs.setString('selected_sound_file', _selectedSoundFile);
+  }
+
+  Future<void> _playNotificationSound() async {
+    if (_selectedSoundFile.isNotEmpty) {
+      try {
+        await _audioPlayer.play(AssetSource(_selectedSoundFile));
+      } catch (e) {
+        print('Error playing notification sound: $e');
+      }
+    }
+  }
+
+  void _checkForNewProblems(List<Map<String, dynamic>> problems) {
+    if (!_notificationsEnabled) return;
+    
+    final currentProblemIds = problems.map((p) => p['eventid'].toString()).toSet();
+    final newProblems = currentProblemIds.difference(_knownProblemIds);
+    
+    if (newProblems.isNotEmpty && _knownProblemIds.isNotEmpty) {
+      _playNotificationSound();
+    }
+    
+    _knownProblemIds = currentProblemIds;
+  }
+
+  Future<void> _initializeKnownProblems() async {
+    try {
+      final problems = await _auth.fetchProblems();
+      _knownProblemIds = problems.map((p) => p['eventid'].toString()).toSet();
+    } catch (e) {
+      print('Error initializing known problems: $e');
+    }
   }
 
   void _showConfigurationDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Configuration'),
+        title: const Text('Configuration', style: TextStyle(fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Server Settings'),
-              subtitle: const Text('Configure Zabbix server connection'),
+              leading: const Icon(Icons.settings, size: 18),
+              title: const Text('Server Settings', style: TextStyle(fontSize: 14)),
+              subtitle: const Text('Configure Zabbix server connection', style: TextStyle(fontSize: 11)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.pushNamed(context, '/configure');
               },
+              dense: true,
             ),
-            const Divider(),
+            const Divider(height: 8),
             SwitchListTile(
-              title: const Text('Ignore Acknowledged'),
-              subtitle: const Text('Hide acknowledged problems from the list'),
+              title: const Text('Ignore Acknowledged', style: TextStyle(fontSize: 14)),
+              subtitle: const Text('Hide acknowledged problems from the list', style: TextStyle(fontSize: 11)),
               value: _ignoreAcknowledged,
               onChanged: (value) {
                 _saveIgnoreAcknowledgedSetting(value);
                 Navigator.pop(context);
               },
-              secondary: const Icon(Icons.visibility_off),
+              secondary: const Icon(Icons.visibility_off, size: 18),
+              dense: true,
             ),
-            const Divider(),
+            const Divider(height: 8),
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold)),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             ),
             ..._buildSeveritySwitches(context),
-            const Divider(),
+            const Divider(height: 8),
             ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
-              subtitle: const Text('Sign out from current session'),
+              leading: const Icon(Icons.logout, color: Colors.red, size: 18),
+              title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 14)),
+              subtitle: const Text('Sign out from current session', style: TextStyle(fontSize: 11)),
               onTap: () async {
                 Navigator.pop(context); // Close dialog first
                 try {
@@ -172,6 +234,92 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNotificationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notification Settings', style: TextStyle(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              title: const Text('Enable Notifications', style: TextStyle(fontSize: 14)),
+              subtitle: const Text('Play sound for new problems', style: TextStyle(fontSize: 11)),
+              value: _notificationsEnabled,
+              onChanged: (value) {
+                setState(() {
+                  _notificationsEnabled = value;
+                });
+                _saveNotificationSettings();
+              },
+              dense: true,
+            ),
+            const Divider(height: 8),
+            ListTile(
+              leading: const Icon(Icons.audiotrack, size: 18),
+              title: const Text('Select Sound File', style: TextStyle(fontSize: 14)),
+              subtitle: Text(
+                _selectedSoundFile.isEmpty ? 'No file selected' : _selectedSoundFile.split('/').last,
+                style: const TextStyle(fontSize: 11),
+              ),
+              dense: true,
+              onTap: _notificationsEnabled ? () => _selectSoundFile(context) : null,
+            ),
+            if (_selectedSoundFile.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.play_arrow, size: 18),
+                title: const Text('Test Sound', style: TextStyle(fontSize: 14)),
+                dense: true,
+                onTap: _playNotificationSound,
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectSoundFile(BuildContext context) async {
+    final List<String> soundOptions = [
+      'sounds/notification.wav',
+      'sounds/alert.mp3', 
+      'sounds/bell.wav',
+      'sounds/chime.flac'
+    ];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Sound', style: TextStyle(fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: soundOptions.map((sound) => ListTile(
+            title: Text(sound.split('/').last, style: const TextStyle(fontSize: 14)),
+            onTap: () {
+              setState(() {
+                _selectedSoundFile = sound;
+              });
+              _saveNotificationSettings();
+              Navigator.pop(context);
+            },
+            dense: true,
+          )).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
         ],
       ),
@@ -263,6 +411,15 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             ),
           ),
           const SizedBox(width: 8),
+          // Notification button
+          IconButton(
+            icon: Icon(
+              _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
+              size: 20,
+            ),
+            onPressed: () => _showNotificationDialog(context),
+            tooltip: 'Notifications',
+          ),
           // Configuration button
           IconButton(
             icon: const Icon(Icons.settings),
@@ -694,14 +851,16 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       final icon = severityIcons[severity] ?? Icons.circle_outlined;
       
       return SwitchListTile(
-        title: Text('Ignore $name'),
-        subtitle: Text('Hide $name severity problems'),
+        title: Text('Ignore $name', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+        subtitle: null,
         value: _ignoreSeverities[severity] ?? false,
         onChanged: (value) {
           _saveIgnoreSeveritySetting(severity, value);
         },
-        secondary: Icon(icon),
+        secondary: Icon(icon, size: 16),
         dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: -2),
+        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
       );
     }).toList();
   }
