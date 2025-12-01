@@ -1,0 +1,20 @@
+Package: zabb
+Version: 0.3.0-1
+Section: net
+Priority: optional
+Architecture: amd64
+Depends: libc6 (>= 2.34), libgtk-3-0 (>= 3.24), libgstreamer1.0-0, libgstreamer-plugins-base1.0-0
+Maintainer: VitexSoftware <info@vitexsoftware.cz>
+Description: Flutter-based mobile client for Zabbix monitoring
+ Zabb is a modern Flutter-based mobile client for Zabbix monitoring system,
+ enabling users to monitor and manage Zabbix resources from their mobile devices.
+ .
+ Features include:
+  - Real-time monitoring of Zabbix problems with auto-refresh
+  - Advanced filtering by severity level and hostname
+  - Smart notifications with per-severity audio alerts
+  - Mobile-optimized UI with ultra-compact design
+  - Persistent settings and sorting across sessions
+  - New problem popup alerts for immediate attention
+  - Configuration screen with comprehensive settings
+Homepage: https://github.com/VitexSoftware/Zabb

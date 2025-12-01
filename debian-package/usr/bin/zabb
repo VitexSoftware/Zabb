@@ -1,0 +1,6 @@
+#!/bin/bash
+# Wrapper script for Zabb to handle data directory
+export ZABB_HOME="$HOME/.config/zabb"
+mkdir -p "$ZABB_HOME"
+cd "$ZABB_HOME"
+exec /usr/bin/zabb-bin "$@"

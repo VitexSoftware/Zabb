@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Zabb
+Comment=Flutter-based mobile client for Zabbix monitoring
+Icon=zabb
+Exec=/usr/bin/zabb
+Categories=Network;Monitor;
+Keywords=zabbix;monitoring;network;problems;alerts;
+StartupNotify=true
+StartupWMClass=zabb
