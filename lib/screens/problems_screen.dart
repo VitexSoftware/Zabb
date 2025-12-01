@@ -812,18 +812,18 @@ class _ProblemsTableState extends State<_ProblemsTable> {
             sortColumnIndex: _sortColumnIndex,
             sortAscending: _sortAscending,
             headingRowHeight: 56,
-            columnSpacing: 12,
+            columnSpacing: 4,
             columns: [
               DataColumn(
-                label: const SizedBox(width: 60, child: Text('Sev', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 32, child: Text('Sev', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 60, child: Text('Start', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 50, child: Text('Start', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 70, child: Text('Duration', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 60, child: Text('Duration', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
@@ -831,7 +831,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 100, child: Text('Host', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 80, child: Text('Host', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
             ],
@@ -856,12 +856,12 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.3))),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Row(
                   children: [
                     // Severity column
                     SizedBox(
-                      width: 44,
+                      width: 32,
                       child: _SeverityDot(
                         severity: severity,
                         isSelected: _selectedSeverity == severity,
@@ -872,30 +872,30 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 2),
                     // Start column with responsive formatting
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 60,
+                        width: 50,
                         child: startDateTime == null 
                             ? const Text('', style: TextStyle(fontSize: 11))
                             : _buildDateTimeColumn(startDateTime),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 2),
                     // Duration column
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 70, 
+                        width: 60, 
                         child: Text(
                           _formatDuration(duration), 
                           style: const TextStyle(fontSize: 11),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 2),
                     // Name column (expandable)
                     Expanded(
                       child: GestureDetector(
@@ -910,16 +910,16 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                                 style: const TextStyle(fontSize: 12, height: 1.2),
                               ),
                             ),
-                            if (acknowledged) const SizedBox(width: 4),
+                            if (acknowledged) const SizedBox(width: 2),
                             if (acknowledged) const Text('✅', style: TextStyle(fontSize: 10)),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 2),
                     // Host column - compact mobile layout
                     SizedBox(
-                      width: 100,
+                      width: 80,
                       child: GestureDetector(
                         onTap: () {
                           final newHostname = _selectedHostname == host ? null : host;
@@ -927,7 +927,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                           widget.onFilterChanged(_selectedSeverity, newHostname, rows.length);
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 2),
                           decoration: BoxDecoration(
                             color: _selectedHostname == host ? Colors.blue.withOpacity(0.1) : null,
                             border: _selectedHostname == host ? Border.all(color: Colors.blue, width: 1) : null,
