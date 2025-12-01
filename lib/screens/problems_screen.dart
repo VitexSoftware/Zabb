@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:zabb/services/auth_service.dart';
@@ -253,17 +254,32 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                   
                   // Full description
                   _buildDetailSection('Description', [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Theme.of(context).dividerColor),
-                      ),
-                      child: SelectableText(
-                        problem['name']?.toString() ?? 'No description available',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                    GestureDetector(
+                      onTap: () => _copyToClipboard(problem['name']?.toString() ?? 'No description available'),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: SelectableText(
+                                problem['name']?.toString() ?? 'No description available',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.copy,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ]),
@@ -277,10 +293,24 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                         runSpacing: 4,
                         children: tags.map((tag) {
                           final tagStr = tag is Map ? '${tag['tag'] ?? ''}${tag['value'] != null ? ':${tag['value']}' : ''}' : tag.toString();
-                          return Chip(
-                            label: Text(tagStr, style: const TextStyle(fontSize: 12)),
-                            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                            labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          return GestureDetector(
+                            onTap: () => _copyToClipboard(tagStr),
+                            child: Chip(
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(tagStr, style: const TextStyle(fontSize: 12)),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.copy,
+                                    size: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ],
+                              ),
+                              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                              labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
                           );
                         }).toList(),
                       ),
@@ -299,21 +329,36 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                         final user = ack['alias']?.toString() ?? ack['name']?.toString() ?? 'Unknown user';
                         final message = ack['message']?.toString() ?? 'No message';
                         
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Theme.of(context).dividerColor),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('$user - $ackTimeStr', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              SelectableText(message),
-                            ],
+                        return GestureDetector(
+                          onTap: () => _copyToClipboard('$user - $ackTimeStr: $message'),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Theme.of(context).dividerColor),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('$user - $ackTimeStr', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 4),
+                                      SelectableText(message),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.copy,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       }).toList(),
@@ -325,17 +370,32 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                   ExpansionTile(
                     title: const Text('Raw Data'),
                     children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Theme.of(context).dividerColor),
-                        ),
-                        child: SelectableText(
-                          _formatJson(problem),
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      GestureDetector(
+                        onTap: () => _copyToClipboard(_formatJson(problem)),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Theme.of(context).dividerColor),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: SelectableText(
+                                  _formatJson(problem),
+                                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.copy,
+                                size: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -424,14 +484,52 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             ),
           ),
           Expanded(
-            child: SelectableText(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: _buildCopyableText(value),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildCopyableText(String text, {TextStyle? style}) {
+    return GestureDetector(
+      onTap: () => _copyToClipboard(text),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          children: [
+            Expanded(
+              child: SelectableText(
+                text,
+                style: style ?? Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.copy,
+              size: 16,
+              color: Colors.grey[600],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Copied: $text'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   String _getSeverityText(int severity) {
