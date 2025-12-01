@@ -20,6 +20,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   int _countdownSeconds = 30;
   int _itemCount = 0;
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   
   // Filter state that persists across refreshes
   int? _selectedSeverity;
@@ -37,6 +38,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   void dispose() {
     _refreshTimer?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -88,7 +90,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                   await _auth.logout();
                   if (mounted) {
                     Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/',
+                      '/welcome',
                       (route) => false,
                     );
                   }
@@ -120,17 +122,19 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         title: Row(
           children: [
             SvgPicture.asset('assets/zabb.svg', height: 24, width: 24),
-            const SizedBox(width: 8),
-            const Text('Problems'),
             const SizedBox(width: 16),
             Expanded(
               child: SizedBox(
                 height: 40,
                 child: TextField(
                   controller: _searchController,
+                  focusNode: _searchFocusNode,
                   decoration: InputDecoration(
                     hintText: 'Search...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIcon: GestureDetector(
+                      onTap: () => _searchFocusNode.requestFocus(),
+                      child: const Icon(Icons.search, size: 20),
+                    ),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.clear, size: 18),
@@ -815,11 +819,11 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 110, child: Text('Start', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 85, child: Text('Start', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
-                label: const SizedBox(width: 80, child: Text('Duration', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 70, child: Text('Duration', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; }),
               ),
               DataColumn(
@@ -868,23 +872,23 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     // Start column with responsive formatting
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 98,
+                        width: 85,
                         child: startDateTime == null 
                             ? const Text('', style: TextStyle(fontSize: 11))
                             : _buildDateTimeColumn(startDateTime),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 8),
                     // Duration column
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 68, 
+                        width: 70, 
                         child: Text(
                           _formatDuration(duration), 
                           style: const TextStyle(fontSize: 11),
