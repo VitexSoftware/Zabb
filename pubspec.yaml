@@ -1,7 +1,7 @@
 name: zabb
 description: Flutter-based mobile client for Zabbix monitoring
 publish_to: 'none'
-version: 0.2.0
+version: 0.2.1
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -15,6 +15,7 @@ dependencies:
   flutter_svg: ^2.0.10
   url_launcher: ^6.2.5
   audioplayers: ^6.0.0
+  file_picker: ^8.0.0+1
 
 dev_dependencies:
   flutter_test:

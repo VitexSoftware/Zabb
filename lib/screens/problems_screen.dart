@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
@@ -139,7 +140,11 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   Future<void> _playNotificationSound() async {
     if (_selectedSoundFile.isNotEmpty) {
       try {
-        await _audioPlayer.play(AssetSource(_selectedSoundFile));
+        if (_selectedSoundFile.startsWith('sounds/')) {
+          await _audioPlayer.play(AssetSource(_selectedSoundFile));
+        } else {
+          await _audioPlayer.play(DeviceFileSource(_selectedSoundFile));
+        }
       } catch (e) {
         print('Error playing notification sound: $e');
       }
@@ -265,7 +270,11 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               leading: const Icon(Icons.audiotrack, size: 18),
               title: const Text('Select Sound File', style: TextStyle(fontSize: 14)),
               subtitle: Text(
-                _selectedSoundFile.isEmpty ? 'No file selected' : _selectedSoundFile.split('/').last,
+                _selectedSoundFile.isEmpty 
+                    ? 'No file selected' 
+                    : _selectedSoundFile.startsWith('sounds/')
+                        ? _selectedSoundFile.split('/').last
+                        : _selectedSoundFile.split('/').last,
                 style: const TextStyle(fontSize: 11),
               ),
               dense: true,
@@ -305,17 +314,28 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         title: const Text('Select Sound', style: TextStyle(fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: soundOptions.map((sound) => ListTile(
-            title: Text(sound.split('/').last, style: const TextStyle(fontSize: 14)),
-            onTap: () {
-              setState(() {
-                _selectedSoundFile = sound;
-              });
-              _saveNotificationSettings();
-              Navigator.pop(context);
-            },
-            dense: true,
-          )).toList(),
+          children: [
+            ...soundOptions.map((sound) => ListTile(
+              leading: const Icon(Icons.music_note, size: 18),
+              title: Text(sound.split('/').last, style: const TextStyle(fontSize: 14)),
+              onTap: () {
+                setState(() {
+                  _selectedSoundFile = sound;
+                });
+                _saveNotificationSettings();
+                Navigator.pop(context);
+              },
+              dense: true,
+            )),
+            const Divider(height: 8),
+            ListTile(
+              leading: const Icon(Icons.folder_open, size: 18),
+              title: const Text('Browse Files...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Choose custom audio file', style: TextStyle(fontSize: 11)),
+              onTap: () => _pickCustomSoundFile(context),
+              dense: true,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -325,6 +345,43 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _pickCustomSoundFile(BuildContext context) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final String filePath = result.files.single.path!;
+        setState(() {
+          _selectedSoundFile = filePath;
+        });
+        await _saveNotificationSettings();
+        
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Selected: ${result.files.single.name}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error picking sound file: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error selecting file. Please try again.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
