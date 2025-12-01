@@ -203,17 +203,30 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     final newProblems = currentProblemIds.difference(_knownProblemIds);
     
     if (newProblems.isNotEmpty && _knownProblemIds.isNotEmpty) {
-      // Find the highest severity of new problems
+      // Find the highest severity of new problems and get the first new problem details
       int highestSeverity = 0;
+      Map<String, dynamic>? firstNewProblem;
+      
       for (final problem in problems) {
         if (newProblems.contains(problem['eventid'].toString())) {
           final severity = int.tryParse(problem['priority'].toString()) ?? 0;
           if (severity > highestSeverity) {
             highestSeverity = severity;
+            firstNewProblem = problem;
+          }
+          // If we haven't found a problem yet, take this one
+          if (firstNewProblem == null) {
+            firstNewProblem = problem;
           }
         }
       }
+      
       _playNotificationSoundForSeverity(highestSeverity);
+      
+      // Show popup for the first new problem
+      if (firstNewProblem != null && mounted) {
+        _showNewProblemPopup(context, firstNewProblem, newProblems.length);
+      }
     }
     
     _knownProblemIds = currentProblemIds;
@@ -225,6 +238,109 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       _knownProblemIds = problems.map((p) => p['eventid'].toString()).toSet();
     } catch (e) {
       print('Error initializing known problems: $e');
+    }
+  }
+
+  void _showNewProblemPopup(BuildContext context, Map<String, dynamic> problem, int totalNewProblems) {
+    final triggerId = problem['objectid']?.toString() ?? '';
+    final hostname = triggerId.isNotEmpty ? AuthService.instance.getHostNameByTriggerId(triggerId) : 'Unknown';
+    final severity = _parseInt(problem['severity'] ?? 0, defaultValue: 0);
+    final problemName = problem['name']?.toString() ?? 'Unknown Problem';
+    final clock = _parseInt(problem['clock'] ?? 0, defaultValue: 0);
+    
+    // Format timestamp
+    final timestamp = clock > 0 
+        ? DateFormat('HH:mm:ss').format(DateTime.fromMillisecondsSinceEpoch(clock * 1000))
+        : 'Unknown';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning,
+              color: _getColorForSeverity(severity),
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'New Problem${totalNewProblems > 1 ? 's' : ''} Detected',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (totalNewProblems > 1)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$totalNewProblems new problems detected. Showing details of the most severe.',
+                  style: const TextStyle(fontSize: 12, color: Colors.orange),
+                ),
+              ),
+            _buildDetailRow('Host:', hostname),
+            _buildDetailRow('Time:', timestamp),
+            _buildDetailRow('Severity:', _getSeverityText(severity)),
+            const SizedBox(height: 8),
+            Text(
+              'Problem:',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _getColorForSeverity(severity).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _getColorForSeverity(severity).withOpacity(0.3)),
+              ),
+              child: Text(
+                problemName,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Dismiss'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showDetails(context, problem);
+            },
+            child: const Text('View Details'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getColorForSeverity(int severity) {
+    switch (severity) {
+      case 5: return Colors.red; // Disaster
+      case 4: return Colors.deepOrange; // High
+      case 3: return Colors.orange; // Average
+      case 2: return Colors.yellow.shade700; // Warning
+      case 1: return Colors.blue; // Information
+      default: return Colors.grey; // Not classified
     }
   }
 
