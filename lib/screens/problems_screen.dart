@@ -28,6 +28,16 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   String? _selectedHostname;
   String _searchQuery = '';
   bool _ignoreAcknowledged = true; // Default enabled to hide acknowledged problems
+  
+  // Severity ignore settings (default: show all severities)
+  Map<int, bool> _ignoreSeverities = {
+    0: false, // Not classified
+    1: false, // Information
+    2: false, // Warning
+    3: false, // Average
+    4: false, // High
+    5: false, // Disaster
+  };
 
   @override
   void initState() {
@@ -35,6 +45,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _future = _auth.fetchProblems();
     _startRefreshTimer();
     _loadIgnoreAcknowledgedSetting();
+    _loadIgnoreSeveritySettings();
   }
 
   Future<void> _loadIgnoreAcknowledgedSetting() async {
@@ -49,6 +60,23 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     await prefs.setBool('ignore_acknowledged', value);
     setState(() {
       _ignoreAcknowledged = value;
+    });
+  }
+
+  Future<void> _loadIgnoreSeveritySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      for (int severity = 0; severity <= 5; severity++) {
+        _ignoreSeverities[severity] = prefs.getBool('ignore_severity_$severity') ?? false;
+      }
+    });
+  }
+
+  Future<void> _saveIgnoreSeveritySetting(int severity, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ignore_severity_$severity', value);
+    setState(() {
+      _ignoreSeverities[severity] = value;
     });
   }
 
@@ -108,6 +136,12 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               },
               secondary: const Icon(Icons.visibility_off),
             ),
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            ..._buildSeveritySwitches(context),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
@@ -271,6 +305,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             selectedHostname: _selectedHostname,
             searchQuery: _searchQuery,
             ignoreAcknowledged: _ignoreAcknowledged,
+            ignoreSeverities: _ignoreSeverities,
             onFilterChanged: (severity, hostname, filteredCount) {
               setState(() {
                 _selectedSeverity = severity;
@@ -634,6 +669,43 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     }
   }
 
+  List<Widget> _buildSeveritySwitches(BuildContext context) {
+    final severityNames = {
+      0: 'Not classified',
+      1: 'Information',
+      2: 'Warning',
+      3: 'Average',
+      4: 'High',
+      5: 'Disaster',
+    };
+    
+    final severityIcons = {
+      0: Icons.help_outline,
+      1: Icons.info_outline,
+      2: Icons.warning_amber_outlined,
+      3: Icons.error_outline,
+      4: Icons.priority_high,
+      5: Icons.dangerous_outlined,
+    };
+
+    return severityNames.entries.map((entry) {
+      final severity = entry.key;
+      final name = entry.value;
+      final icon = severityIcons[severity] ?? Icons.circle_outlined;
+      
+      return SwitchListTile(
+        title: Text('Ignore $name'),
+        subtitle: Text('Hide $name severity problems'),
+        value: _ignoreSeverities[severity] ?? false,
+        onChanged: (value) {
+          _saveIgnoreSeveritySetting(severity, value);
+        },
+        secondary: Icon(icon),
+        dense: true,
+      );
+    }).toList();
+  }
+
   String _getSeverityText(int severity) {
     final severityNames = {
       0: 'Not classified',
@@ -665,6 +737,7 @@ class _ProblemsTable extends StatefulWidget {
   final String? selectedHostname;
   final String searchQuery;
   final bool ignoreAcknowledged;
+  final Map<int, bool> ignoreSeverities;
   final void Function(int?, String?, int) onFilterChanged;
   
   const _ProblemsTable({
@@ -675,6 +748,7 @@ class _ProblemsTable extends StatefulWidget {
     required this.selectedHostname,
     required this.searchQuery,
     required this.ignoreAcknowledged,
+    required this.ignoreSeverities,
     required this.onFilterChanged,
   });
 
@@ -742,6 +816,13 @@ class _ProblemsTableState extends State<_ProblemsTable> {
         return acknowledges == null || acknowledges.isEmpty;
       }).toList();
     }
+    
+    // Apply severity ignore filters
+    rows = rows.where((item) {
+      final severity = _valueInt(item['severity']);
+      final ignoreThisSeverity = widget.ignoreSeverities[severity] ?? false;
+      return !ignoreThisSeverity;
+    }).toList();
     
     rows.sort((a, b) {
       int cmp;
