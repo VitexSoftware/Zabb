@@ -247,6 +247,20 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               dense: true,
             ),
             const Divider(height: 8),
+            ListTile(
+              leading: Icon(
+                _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
+                size: 18,
+              ),
+              title: const Text('Notifications', style: TextStyle(fontSize: 12)),
+              subtitle: const Text('Configure audio notifications', style: TextStyle(fontSize: 10)),
+              onTap: () {
+                Navigator.pop(context);
+                _showNotificationConfigScreen(context);
+              },
+              dense: true,
+            ),
+            const Divider(height: 8),
             SwitchListTile(
               title: const Text('Ignore Acknowledged', style: TextStyle(fontSize: 12)),
               subtitle: const Text('Hide acknowledged problems from the list', style: TextStyle(fontSize: 10)),
@@ -491,15 +505,6 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          // Notification button
-          IconButton(
-            icon: Icon(
-              _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
-              size: 20,
-            ),
-            onPressed: () => _showNotificationConfigScreen(context),
-            tooltip: 'Notifications',
-          ),
           // Configuration button
           IconButton(
             icon: const Icon(Icons.settings),
