@@ -19,10 +19,12 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   Timer? _refreshTimer;
   int _countdownSeconds = 30;
   int _itemCount = 0;
+  final _searchController = TextEditingController();
   
   // Filter state that persists across refreshes
   int? _selectedSeverity;
   String? _selectedHostname;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -137,47 +140,86 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            // Print errors to stdout for easier debugging on Linux
-            // ignore: avoid_print
-            print('ProblemsScreen error: ${snapshot.error}');
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          final items = snapshot.data ?? const [];
-          
-          if (items.isEmpty) {
-            // Update item count for empty list
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && _itemCount != 0) {
+      body: Column(
+        children: [
+          // Search bar
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by problem name or hostname...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onChanged: (value) {
                 setState(() {
-                  _itemCount = 0;
+                  _searchQuery = value.toLowerCase();
                 });
-              }
-            });
-            return const Center(child: Text('No problems'));
-          }
-          // Build a sortable table view of problems
-          return _ProblemsTable(
-            items: items, 
-            onDetails: (p) => _showDetails(context, p),
-            onRefresh: _refreshData,
-            selectedSeverity: _selectedSeverity,
-            selectedHostname: _selectedHostname,
-            onFilterChanged: (severity, hostname, filteredCount) {
-              setState(() {
-                _selectedSeverity = severity;
-                _selectedHostname = hostname;
-                _itemCount = filteredCount;
-              });
-            },
-          );
-        },
+              },
+            ),
+          ),
+          // Problems table
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  // Print errors to stdout for easier debugging on Linux
+                  // ignore: avoid_print
+                  print('ProblemsScreen error: ${snapshot.error}');
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                final items = snapshot.data ?? const [];
+                
+                if (items.isEmpty) {
+                  // Update item count for empty list
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _itemCount != 0) {
+                      setState(() {
+                        _itemCount = 0;
+                      });
+                    }
+                  });
+                  return const Center(child: Text('No problems'));
+                }
+                // Build a sortable table view of problems
+                return _ProblemsTable(
+                  items: items, 
+                  onDetails: (p) => _showDetails(context, p),
+                  onRefresh: _refreshData,
+                  selectedSeverity: _selectedSeverity,
+                  selectedHostname: _selectedHostname,
+                  searchQuery: _searchQuery,
+                  onFilterChanged: (severity, hostname, filteredCount) {
+                    setState(() {
+                      _selectedSeverity = severity;
+                      _selectedHostname = hostname;
+                      _itemCount = filteredCount;
+                    });
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -561,6 +603,7 @@ class _ProblemsTable extends StatefulWidget {
   final VoidCallback onRefresh;
   final int? selectedSeverity;
   final String? selectedHostname;
+  final String searchQuery;
   final void Function(int?, String?, int) onFilterChanged;
   
   const _ProblemsTable({
@@ -569,6 +612,7 @@ class _ProblemsTable extends StatefulWidget {
     required this.onRefresh,
     required this.selectedSeverity,
     required this.selectedHostname,
+    required this.searchQuery,
     required this.onFilterChanged,
   });
 
@@ -609,6 +653,15 @@ class _ProblemsTableState extends State<_ProblemsTable> {
   
   List<Map<String, dynamic>> _getRowsWithFilter(int? severityFilter, String? hostnameFilter) {
     var rows = List<Map<String, dynamic>>.from(widget.items);
+    
+    // Apply search filter if search query exists
+    if (widget.searchQuery.isNotEmpty) {
+      rows = rows.where((item) {
+        final problemName = _valueString(item['name'] ?? item['message']).toLowerCase();
+        final hostname = _hostOf(item).toLowerCase();
+        return problemName.contains(widget.searchQuery) || hostname.contains(widget.searchQuery);
+      }).toList();
+    }
     
     // Apply severity filter if one is selected
     if (severityFilter != null) {
