@@ -5,8 +5,16 @@ import 'package:zabb/screens/problems_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/configure_server_screen.dart';
 import 'services/auth_service.dart';
+import 'background/zabbix_foreground_task.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize background monitoring services
+  await ZabbixBackgroundTaskManager.initialize();
+  await NotificationService.instance.initialize();
+  
   runApp(const ZabbixApp());
 }
 
@@ -94,6 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         final token = await AuthService.instance.login();
         if (!mounted) return;
+        
+        // Start background monitoring after successful login
+        await _startBackgroundMonitoring();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Authenticated. Token: ${token.substring(0, 8)}...')),
         );
@@ -104,6 +116,27 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Autologin failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _startBackgroundMonitoring() async {
+    try {
+      // Request battery optimization exemption
+      await ZabbixBackgroundTaskManager.requestIgnoreBatteryOptimization();
+      
+      // Start background monitoring
+      final started = await ZabbixBackgroundTaskManager.startMonitoring();
+      if (started && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Background monitoring started')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start background monitoring: $e')),
         );
       }
     }
@@ -187,6 +220,10 @@ class _LoginButtonState extends State<_LoginButton> {
       final token = await AuthService.instance.login();
       setState(() => _token = token);
       if (!mounted) return;
+      
+      // Start background monitoring after successful login
+      await _startBackgroundMonitoring();
+      
       messenger.showSnackBar(
         SnackBar(content: Text('Authenticated. Token: ${token.substring(0, 8)}...')),
       );
@@ -200,6 +237,27 @@ class _LoginButtonState extends State<_LoginButton> {
       );
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _startBackgroundMonitoring() async {
+    try {
+      // Request battery optimization exemption
+      await ZabbixBackgroundTaskManager.requestIgnoreBatteryOptimization();
+      
+      // Start background monitoring
+      final started = await ZabbixBackgroundTaskManager.startMonitoring();
+      if (started && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Background monitoring started')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start background monitoring: $e')),
+        );
+      }
     }
   }
 
@@ -221,10 +279,12 @@ class _LoginButtonState extends State<_LoginButton> {
                     final messenger = ScaffoldMessenger.of(context);
                     try {
                       await AuthService.instance.logout();
+                      // Stop background monitoring on logout
+                      await ZabbixBackgroundTaskManager.stopMonitoring();
                       setState(() => _token = null);
                       if (!mounted) return;
                       messenger.showSnackBar(
-                        const SnackBar(content: Text('Logged out')),
+                        const SnackBar(content: Text('Logged out and monitoring stopped')),
                       );
                     } catch (e) {
                       if (!mounted) return;

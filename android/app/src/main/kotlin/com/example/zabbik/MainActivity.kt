@@ -1,4 +1,4 @@
-package com.example.zabb
+package com.vitexsoftware.zabb
 
 import io.flutter.embedding.android.FlutterActivity
 
