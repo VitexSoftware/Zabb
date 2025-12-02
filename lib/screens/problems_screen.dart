@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -63,6 +62,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _loadIgnoreSeveritySettings();
     _loadNotificationSettings();
     _loadSortSettings();
+    _loadRefreshIntervalSetting();
     _initializeKnownProblems();
   }
 
@@ -102,6 +102,22 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sort_by', _sortBy);
     await prefs.setBool('sort_ascending', _sortAscending);
+  }
+
+  Future<void> _loadRefreshIntervalSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _refreshInterval = prefs.getInt('refresh_interval') ?? 30;
+    });
+  }
+
+  Future<void> _saveRefreshIntervalSetting(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('refresh_interval', value);
+    setState(() {
+      _refreshInterval = value;
+    });
+    _startRefreshTimer(); // Restart timer with new interval
   }
 
   Future<void> _saveIgnoreSeveritySetting(int severity, bool value) async {
@@ -344,88 +360,33 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     }
   }
 
-  void _showConfigurationDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Configuration', style: TextStyle(fontSize: 14)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.settings, size: 18),
-              title: const Text('Server Settings', style: TextStyle(fontSize: 12)),
-              subtitle: const Text('Configure Zabbix server connection', style: TextStyle(fontSize: 10)),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/configure');
-              },
-              dense: true,
-            ),
-            const Divider(height: 8),
-            ListTile(
-              leading: Icon(
-                _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
-                size: 18,
-              ),
-              title: const Text('Notifications', style: TextStyle(fontSize: 12)),
-              subtitle: const Text('Configure audio notifications', style: TextStyle(fontSize: 10)),
-              onTap: () {
-                Navigator.pop(context);
-                _showNotificationConfigScreen(context);
-              },
-              dense: true,
-            ),
-            const Divider(height: 8),
-            SwitchListTile(
-              title: const Text('Ignore Acknowledged', style: TextStyle(fontSize: 12)),
-              subtitle: const Text('Hide acknowledged problems from the list', style: TextStyle(fontSize: 10)),
-              value: _ignoreAcknowledged,
-              onChanged: (value) {
-                _saveIgnoreAcknowledgedSetting(value);
-                Navigator.pop(context);
-              },
-              secondary: const Icon(Icons.visibility_off, size: 18),
-              dense: true,
-            ),
-            const Divider(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-            ),
-            ..._buildSeveritySwitches(context),
-            const Divider(height: 8),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red, size: 18),
-              title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 12)),
-              subtitle: const Text('Sign out from current session', style: TextStyle(fontSize: 10)),
-              onTap: () async {
-                Navigator.pop(context); // Close dialog first
-                try {
-                  await _auth.logout();
-                  if (mounted) {
-                    Navigator.of(context).pushNamedAndRemoveUntil(
-                      '/welcome',
-                      (route) => false,
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Logout failed: $e')),
-                    );
-                  }
-                }
-              },
-            ),
-          ],
+  void _showConfigurationScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _ConfigurationScreen(
+          ignoreAcknowledged: _ignoreAcknowledged,
+          ignoreSeverities: Map.from(_ignoreSeverities),
+          refreshInterval: _refreshInterval,
+          notificationsEnabled: _notificationsEnabled,
+          selectedSoundFile: _selectedSoundFile,
+          severitySounds: Map.from(_severitySounds),
+          audioPlayer: _audioPlayer,
+          onSettingsChanged: (ignoreAcknowledged, ignoreSeverities, refreshInterval) {
+            _saveIgnoreAcknowledgedSetting(ignoreAcknowledged);
+            for (int severity = 0; severity <= 5; severity++) {
+              _saveIgnoreSeveritySetting(severity, ignoreSeverities[severity] ?? false);
+            }
+            _saveRefreshIntervalSetting(refreshInterval);
+          },
+          onNotificationSettingsChanged: (enabled, defaultSound, severitySounds) {
+            setState(() {
+              _notificationsEnabled = enabled;
+              _selectedSoundFile = defaultSound;
+              _severitySounds = Map.from(severitySounds);
+            });
+            _saveNotificationSettings();
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -624,7 +585,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           // Configuration button
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () => _showConfigurationDialog(context),
+            onPressed: () => _showConfigurationScreen(context),
             tooltip: 'Settings',
           ),
         ],
@@ -1342,7 +1303,6 @@ class _ProblemsTableState extends State<_ProblemsTable> {
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat('yyyy-MM-dd HH:mm');
     final rows = _rows;
     return Column(
       children: [
@@ -1881,5 +1841,327 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
 
   void _saveSettings() {
     widget.onSettingsChanged(_notificationsEnabled, _defaultSoundFile, _severitySounds);
+  }
+}
+
+class _ConfigurationScreen extends StatefulWidget {
+  final bool ignoreAcknowledged;
+  final Map<int, bool> ignoreSeverities;
+  final int refreshInterval;
+  final bool notificationsEnabled;
+  final String selectedSoundFile;
+  final Map<int, String> severitySounds;
+  final AudioPlayer audioPlayer;
+  final Function(bool, Map<int, bool>, int) onSettingsChanged;
+  final Function(bool, String, Map<int, String>) onNotificationSettingsChanged;
+
+  const _ConfigurationScreen({
+    required this.ignoreAcknowledged,
+    required this.ignoreSeverities,
+    required this.refreshInterval,
+    required this.notificationsEnabled,
+    required this.selectedSoundFile,
+    required this.severitySounds,
+    required this.audioPlayer,
+    required this.onSettingsChanged,
+    required this.onNotificationSettingsChanged,
+  });
+
+  @override
+  State<_ConfigurationScreen> createState() => _ConfigurationScreenState();
+}
+
+class _ConfigurationScreenState extends State<_ConfigurationScreen> {
+  late bool _ignoreAcknowledged;
+  late Map<int, bool> _ignoreSeverities;
+  late int _refreshInterval;
+  late bool _notificationsEnabled;
+  late String _selectedSoundFile;
+  late Map<int, String> _severitySounds;
+  final TextEditingController _refreshController = TextEditingController();
+
+  final Map<int, String> _severityNames = {
+    0: 'Not classified',
+    1: 'Information',
+    2: 'Warning',
+    3: 'Average',
+    4: 'High',
+    5: 'Disaster',
+  };
+
+  final Map<int, IconData> _severityIcons = {
+    0: Icons.help_outline,
+    1: Icons.info_outline,
+    2: Icons.warning_amber_outlined,
+    3: Icons.error_outline,
+    4: Icons.priority_high,
+    5: Icons.dangerous_outlined,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _ignoreAcknowledged = widget.ignoreAcknowledged;
+    _ignoreSeverities = Map.from(widget.ignoreSeverities);
+    _refreshInterval = widget.refreshInterval;
+    _notificationsEnabled = widget.notificationsEnabled;
+    _selectedSoundFile = widget.selectedSoundFile;
+    _severitySounds = Map.from(widget.severitySounds);
+    _refreshController.text = _refreshInterval.toString();
+  }
+
+  @override
+  void dispose() {
+    _refreshController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Configuration', style: TextStyle(fontSize: 16)),
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          TextButton(
+            onPressed: () {
+              _saveSettings();
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Save',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Server Settings
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Connection', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading: const Icon(Icons.settings, size: 18),
+                      title: const Text('Server Settings', style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Configure Zabbix server connection', style: TextStyle(fontSize: 12)),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/configure');
+                      },
+                      dense: true,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.logout, color: Colors.red, size: 18),
+                      title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 14)),
+                      subtitle: const Text('Sign out from current session', style: TextStyle(fontSize: 12)),
+                      onTap: () async {
+                        try {
+                          final auth = AuthService.instance;
+                          await auth.logout();
+                          if (mounted) {
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/welcome',
+                              (route) => false,
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Logout failed: $e')),
+                            );
+                          }
+                        }
+                      },
+                      dense: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Notifications
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading: Icon(
+                        _notificationsEnabled ? Icons.notifications : Icons.notifications_off,
+                        size: 18,
+                      ),
+                      title: const Text('Audio Notifications', style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Configure sound alerts for problems', style: TextStyle(fontSize: 12)),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => _NotificationConfigScreen(
+                              notificationsEnabled: _notificationsEnabled,
+                              selectedSoundFile: _selectedSoundFile,
+                              severitySounds: Map.from(_severitySounds),
+                              onSettingsChanged: (enabled, defaultSound, severitySounds) {
+                                setState(() {
+                                  _notificationsEnabled = enabled;
+                                  _selectedSoundFile = defaultSound;
+                                  _severitySounds = Map.from(severitySounds);
+                                });
+                                widget.onNotificationSettingsChanged(enabled, defaultSound, severitySounds);
+                              },
+                              audioPlayer: widget.audioPlayer,
+                            ),
+                          ),
+                        );
+                        // Refresh the configuration screen to reflect any changes
+                        if (mounted) {
+                          setState(() {
+                            // This will trigger a rebuild with the updated values
+                          });
+                        }
+                      },
+                      dense: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Refresh Settings
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Refresh Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading: const Icon(Icons.refresh, size: 18),
+                      title: const Text('Refresh Interval', style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('How often to check for new problems (seconds)', style: TextStyle(fontSize: 12)),
+                      trailing: SizedBox(
+                        width: 80,
+                        child: TextFormField(
+                          controller: _refreshController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          decoration: const InputDecoration(
+                            suffixText: 's',
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                          onChanged: (value) {
+                            final intValue = int.tryParse(value);
+                            if (intValue != null && intValue >= 5 && intValue <= 300) {
+                              _refreshInterval = intValue;
+                            }
+                          },
+                        ),
+                      ),
+                      dense: true,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Valid range: 5-300 seconds',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Filter Settings
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Filters', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      title: const Text('Ignore Acknowledged', style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Hide acknowledged problems from the list', style: TextStyle(fontSize: 12)),
+                      value: _ignoreAcknowledged,
+                      onChanged: (value) {
+                        setState(() {
+                          _ignoreAcknowledged = value;
+                        });
+                      },
+                      secondary: const Icon(Icons.visibility_off, size: 18),
+                      dense: true,
+                    ),
+                    const Divider(height: 8),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    ),
+                    ..._buildSeveritySwitches(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildSeveritySwitches() {
+    return _severityNames.entries.map((entry) {
+      final severity = entry.key;
+      final name = entry.value;
+      final icon = _severityIcons[severity] ?? Icons.circle_outlined;
+      
+      return SwitchListTile(
+        title: Text(name, style: const TextStyle(fontSize: 14)),
+        subtitle: Text('Hide $name problems', style: const TextStyle(fontSize: 12)),
+        value: _ignoreSeverities[severity] ?? false,
+        onChanged: (value) {
+          setState(() {
+            _ignoreSeverities[severity] = value;
+          });
+        },
+        secondary: Icon(icon, size: 18),
+        dense: true,
+      );
+    }).toList();
+  }
+
+  void _saveSettings() {
+    // Validate refresh interval
+    final refreshValue = int.tryParse(_refreshController.text);
+    if (refreshValue == null || refreshValue < 5 || refreshValue > 300) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Refresh interval must be between 5 and 300 seconds'),
+        ),
+      );
+      return;
+    }
+    
+    _refreshInterval = refreshValue;
+    widget.onSettingsChanged(_ignoreAcknowledged, _ignoreSeverities, _refreshInterval);
   }
 }

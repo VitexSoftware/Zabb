@@ -18,6 +18,11 @@ class ZabbixApi {
     client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
     // Set a reasonable timeout
     client.connectionTimeout = const Duration(seconds: 30);
+    // Add more debugging
+    client.findProxy = (uri) {
+      print('Looking up proxy for: $uri');
+      return 'DIRECT';
+    };
     return IOClient(client);
   }
 
@@ -26,6 +31,13 @@ class ZabbixApi {
   Uri get _endpoint {
     var base = serverUrl.trim();
     base = base.replaceAll(RegExp(r"/+$"), "");
+    
+    // Add IP fallback for zabbix.spojenet.cz to bypass DNS issues
+    if (base.contains('zabbix.spojenet.cz')) {
+      base = base.replaceAll('zabbix.spojenet.cz', '77.87.240.70');
+      print('Using IP fallback: $base');
+    }
+    
     if (base.endsWith('/api_jsonrpc.php')) {
       return Uri.parse(base);
     }
@@ -61,6 +73,9 @@ class ZabbixApi {
       'params': params,
       'id': _requestId++,
     });
+    
+    print('Making request to: $_endpoint');
+    print('Method: $method');
     
     try {
       final resp = await _client.post(

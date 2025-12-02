@@ -82,6 +82,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _autoTried = false;
+  bool _backgroundMonitoringStarted = false;
 
   @override
   void initState() {
@@ -93,15 +94,22 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _attemptAutoLogin() async {
     if (_autoTried) return;
     _autoTried = true;
-    final prefs = await SharedPreferences.getInstance();
-    final server = prefs.getString('zbx_server') ?? '';
-    final user = prefs.getString('zbx_user') ?? '';
-    final pass = prefs.getString('zbx_password') ?? '';
-    final configured = prefs.getBool('zbx_configured') ?? false;
-    if (configured && server.isNotEmpty && user.isNotEmpty && pass.isNotEmpty) {
-      try {
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final server = prefs.getString('zbx_server') ?? '';
+      final user = prefs.getString('zbx_user') ?? '';
+      final pass = prefs.getString('zbx_password') ?? '';
+      final configured = prefs.getBool('zbx_configured') ?? false;
+      
+      print('AutoLogin - Configured: $configured, Server: $server, User: $user');
+      
+      if (configured && server.isNotEmpty && user.isNotEmpty && pass.isNotEmpty) {
+        print('AutoLogin - Attempting login...');
         final token = await AuthService.instance.login();
         if (!mounted) return;
+        
+        print('AutoLogin - Login successful, token: ${token.substring(0, 8)}...');
         
         // Start background monitoring after successful login
         await _startBackgroundMonitoring();
@@ -112,16 +120,36 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const ProblemsScreen()),
         );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Autologin failed: $e')),
-        );
+      } else {
+        print('AutoLogin - Skipped (not configured or missing credentials)');
       }
+    } catch (e, stackTrace) {
+      print('AutoLogin - Error: $e');
+      print('AutoLogin - Stack trace: $stackTrace');
+      if (!mounted) return;
+      
+      // Show a more detailed error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Autologin failed: $e'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Configure',
+            onPressed: () {
+              Navigator.pushNamed(context, '/configure');
+            },
+          ),
+        ),
+      );
     }
   }
 
   Future<void> _startBackgroundMonitoring() async {
+    if (_backgroundMonitoringStarted) {
+      print('Background monitoring already started, skipping...');
+      return;
+    }
+    
     try {
       // Request battery optimization exemption
       await ZabbixBackgroundTaskManager.requestIgnoreBatteryOptimization();
@@ -129,6 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Start background monitoring
       final started = await ZabbixBackgroundTaskManager.startMonitoring();
       if (started && mounted) {
+        _backgroundMonitoringStarted = true;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Background monitoring started')),
         );
@@ -221,9 +250,6 @@ class _LoginButtonState extends State<_LoginButton> {
       setState(() => _token = token);
       if (!mounted) return;
       
-      // Start background monitoring after successful login
-      await _startBackgroundMonitoring();
-      
       messenger.showSnackBar(
         SnackBar(content: Text('Authenticated. Token: ${token.substring(0, 8)}...')),
       );
@@ -237,27 +263,6 @@ class _LoginButtonState extends State<_LoginButton> {
       );
     } finally {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _startBackgroundMonitoring() async {
-    try {
-      // Request battery optimization exemption
-      await ZabbixBackgroundTaskManager.requestIgnoreBatteryOptimization();
-      
-      // Start background monitoring
-      final started = await ZabbixBackgroundTaskManager.startMonitoring();
-      if (started && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Background monitoring started')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start background monitoring: $e')),
-        );
-      }
     }
   }
 
