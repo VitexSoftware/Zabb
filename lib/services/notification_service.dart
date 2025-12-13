@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+import 'notification_handler_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -73,8 +74,21 @@ class NotificationService {
   }
 
   void _onNotificationResponse(NotificationResponse response) {
-    // Handle notification tap - could navigate to specific problem screen
+    // Handle notification tap
+    if (response.payload != null) {
+      NotificationHandlerService.instance.handleNotification(response.payload);
+    }
     debugPrint('Notification tapped: ${response.id}, payload: ${response.payload}');
+  }
+
+  Future<String?> getLaunchNotification() async {
+    final notification = await _notifications.getNotificationAppLaunchDetails();
+    if (notification != null &&
+        notification.didNotificationLaunchApp &&
+        notification.notificationResponse?.payload != null) {
+      return notification.notificationResponse!.payload;
+    }
+    return null;
   }
 
   Future<void> showZabbixAlertNotification({

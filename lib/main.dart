@@ -14,6 +14,12 @@ void main() async {
   // Initialize background monitoring services
   await ZabbixBackgroundTaskManager.initialize();
   await NotificationService.instance.initialize();
+
+  // Check if the app was launched from a notification
+  final launchPayload = await NotificationService.instance.getLaunchNotification();
+  if (launchPayload != null) {
+    NotificationHandlerService.instance.handleNotification(launchPayload);
+  }
   
   runApp(const ZabbixApp());
 }

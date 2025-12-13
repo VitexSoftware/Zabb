@@ -34,6 +34,18 @@ class ZabbixAlert {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'eventid': eventId,
+      'name': name,
+      'severity': severity.toString(),
+      'clock': (timestamp.millisecondsSinceEpoch ~/ 1000).toString(),
+      'objectid': objectId,
+      'acknowledges': acknowledges,
+      'tags': tags,
+    };
+  }
+
   String get severityText {
     switch (severity) {
       case 0: return 'Not classified';
@@ -208,5 +220,16 @@ class ZabbixPollingService {
     }
 
     await _api!.closeEvent(eventId: eventId);
+  }
+
+  Future<ZabbixAlert?> getProblemById(String eventId) async {
+    await _ensureApiInitialized();
+    await _ensureAuthenticated();
+
+    final problemData = await _api!.getProblemById(eventId);
+    if (problemData != null) {
+      return ZabbixAlert.fromJson(problemData);
+    }
+    return null;
   }
 }

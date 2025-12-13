@@ -212,6 +212,24 @@ class ZabbixApi {
     };
     await _post('event.acknowledge', params, auth: _authToken);
   }
+
+  Future<Map<String, dynamic>?> getProblemById(String eventId) async {
+    if (_authToken == null) {
+      throw ZabbixApiException('Not authenticated', {});
+    }
+    final params = {
+      'output': ['eventid', 'name', 'severity', 'clock', 'objectid'],
+      'selectAcknowledges': 'extend',
+      'selectTags': 'extend',
+      'eventids': [eventId],
+    };
+    final response = await _post('problem.get', params, auth: _authToken);
+    final result = response['result'];
+    if (result is List && result.isNotEmpty) {
+      return result.first as Map<String, dynamic>;
+    }
+    return null;
+  }
 }
 
 class ZabbixApiException implements Exception {
