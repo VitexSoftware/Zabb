@@ -44,7 +44,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   bool _sortAscending = false; // Default newest first
   
   // Severity ignore settings (default: show all severities)
-  Map<int, bool> _ignoreSeverities = {
+  final Map<int, bool> _ignoreSeverities = {
     0: false, // Not classified
     1: false, // Information
     2: false, // Warning
@@ -231,9 +231,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             firstNewProblem = problem;
           }
           // If we haven't found a problem yet, take this one
-          if (firstNewProblem == null) {
-            firstNewProblem = problem;
-          }
+          firstNewProblem ??= problem;
         }
       }
       
@@ -1075,7 +1073,7 @@ class _ProblemsTable extends StatefulWidget {
   final Function(String, bool) onSortChanged;
   
   const _ProblemsTable({
-    Key? key,
+    super.key,
     required this.items, 
     required this.onDetails, 
     required this.onRefresh,
@@ -1088,7 +1086,7 @@ class _ProblemsTable extends StatefulWidget {
     required this.sortBy,
     required this.sortAscending,
     required this.onSortChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<_ProblemsTable> createState() => _ProblemsTableState();
@@ -1703,7 +1701,7 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
                           ),
                           dense: true,
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),

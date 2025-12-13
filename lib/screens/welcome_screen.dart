@@ -16,7 +16,7 @@ class WelcomeScreen extends StatelessWidget {
             children: [
               const Spacer(),
               // Zabb logo - 70% of screen width
-              Container(
+              SizedBox(
                 width: MediaQuery.of(context).size.width * 0.7,
                 height: MediaQuery.of(context).size.width * 0.7 * 0.4,
                 child: SvgPicture.asset(
@@ -49,7 +49,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               // nymfette3-smile.png - 70% of screen width
-              Container(
+              SizedBox(
                 width: MediaQuery.of(context).size.width * 0.7,
                 height: MediaQuery.of(context).size.width * 0.7 * 0.5,
                 child: Image.asset(

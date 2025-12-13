@@ -41,7 +41,7 @@ class ZabbixApp extends StatelessWidget {
 }
 
 class _RootRouter extends StatefulWidget {
-  const _RootRouter({super.key});
+  const _RootRouter();
 
   @override
   State<_RootRouter> createState() => _RootRouterState();
