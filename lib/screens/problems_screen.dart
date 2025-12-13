@@ -7,7 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/sound_service.dart';
 
 class ProblemsScreen extends StatefulWidget {
@@ -1793,13 +1796,27 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
       );
 
       if (result != null && result.files.single.path != null) {
-        final filePath = result.files.single.path!;
+        final sourcePath = result.files.single.path!;
+        final sourceFile = File(sourcePath);
+        final fileName = p.basename(sourcePath);
+
+        // Get app's private directory
+        final appDir = await getApplicationDocumentsDirectory();
+        final soundsDir = Directory('${appDir.path}/sounds');
+        if (!await soundsDir.exists()) {
+          await soundsDir.create(recursive: true);
+        }
+
+        // Copy file to the new location
+        final newPath = '${soundsDir.path}/$fileName';
+        await sourceFile.copy(newPath);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Selected: ${result.files.single.name}')),
+            SnackBar(content: Text('Selected: $fileName')),
           );
         }
-        return filePath;
+        return newPath; // Return the new path
       }
     } catch (e) {
       if (mounted) {
