@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
+import '../services/sound_service.dart';
 
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
@@ -183,35 +184,6 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     }
   }
 
-  Future<void> _playNotificationSound() async {
-    if (_selectedSoundFile.isNotEmpty) {
-      try {
-        if (_selectedSoundFile.startsWith('sounds/')) {
-          await _audioPlayer.play(AssetSource(_selectedSoundFile));
-        } else {
-          await _audioPlayer.play(DeviceFileSource(_selectedSoundFile));
-        }
-      } catch (e) {
-        print('Error playing notification sound: $e');
-      }
-    }
-  }
-
-  Future<void> _playNotificationSoundForSeverity(int severity) async {
-    final soundFile = _severitySounds[severity] ?? _selectedSoundFile;
-    if (soundFile.isNotEmpty) {
-      try {
-        if (soundFile.startsWith('sounds/')) {
-          await _audioPlayer.play(AssetSource(soundFile));
-        } else {
-          await _audioPlayer.play(DeviceFileSource(soundFile));
-        }
-      } catch (e) {
-        print('Error playing severity notification sound: $e');
-      }
-    }
-  }
-
   void _checkForNewProblems(List<Map<String, dynamic>> problems) {
     if (!_notificationsEnabled) return;
     
@@ -237,7 +209,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         }
       }
       
-      _playNotificationSoundForSeverity(highestSeverity);
+      SoundService.instance.playSoundForSeverity(highestSeverity);
       
       // Show popup for the first new problem
       if (firstNewProblem != null && mounted) {
