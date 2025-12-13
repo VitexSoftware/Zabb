@@ -12,6 +12,8 @@ import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import '../services/sound_service.dart';
+import '../services/notification_handler_service.dart';
+import '../services/zabbix_polling_service.dart';
 
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
@@ -58,6 +60,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   };
 
   @override
+  StreamSubscription? _notificationSubscription;
+
   void initState() {
     super.initState();
     _future = _auth.fetchProblems();
@@ -68,6 +72,29 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _loadSortSettings();
     _loadRefreshIntervalSetting();
     _initializeKnownProblems();
+    _setupNotificationListener();
+  }
+
+  void _setupNotificationListener() {
+    _notificationSubscription =
+        NotificationHandlerService.instance.notificationStream.listen((eventId) {
+      if (eventId != null) {
+        _handleNotificationTap(eventId);
+      }
+    });
+  }
+
+  Future<void> _handleNotificationTap(String eventId) async {
+    final problem = await ZabbixPollingService.instance.getProblemById(eventId);
+    if (problem != null) {
+      _showDetails(context, problem.toJson());
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Problem not found')),
+        );
+      }
+    }
   }
 
   Future<void> _loadIgnoreAcknowledgedSetting() async {
@@ -137,6 +164,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _refreshTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _notificationSubscription?.cancel();
     super.dispose();
   }
 
