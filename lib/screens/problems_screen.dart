@@ -7,7 +7,13 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import '../services/sound_service.dart';
+import '../services/notification_handler_service.dart';
+import '../services/zabbix_polling_service.dart';
 
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
@@ -54,6 +60,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   };
 
   @override
+  StreamSubscription? _notificationSubscription;
+
   void initState() {
     super.initState();
     _future = _auth.fetchProblems();
@@ -64,6 +72,29 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _loadSortSettings();
     _loadRefreshIntervalSetting();
     _initializeKnownProblems();
+    _setupNotificationListener();
+  }
+
+  void _setupNotificationListener() {
+    _notificationSubscription =
+        NotificationHandlerService.instance.notificationStream.listen((eventId) {
+      if (eventId != null) {
+        _handleNotificationTap(eventId);
+      }
+    });
+  }
+
+  Future<void> _handleNotificationTap(String eventId) async {
+    final problem = await ZabbixPollingService.instance.getProblemById(eventId);
+    if (problem != null) {
+      _showDetails(context, problem.toJson());
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Problem not found')),
+        );
+      }
+    }
   }
 
   Future<void> _loadIgnoreAcknowledgedSetting() async {
@@ -133,6 +164,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _refreshTimer?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _notificationSubscription?.cancel();
     super.dispose();
   }
 
@@ -183,35 +215,6 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     }
   }
 
-  Future<void> _playNotificationSound() async {
-    if (_selectedSoundFile.isNotEmpty) {
-      try {
-        if (_selectedSoundFile.startsWith('sounds/')) {
-          await _audioPlayer.play(AssetSource(_selectedSoundFile));
-        } else {
-          await _audioPlayer.play(DeviceFileSource(_selectedSoundFile));
-        }
-      } catch (e) {
-        print('Error playing notification sound: $e');
-      }
-    }
-  }
-
-  Future<void> _playNotificationSoundForSeverity(int severity) async {
-    final soundFile = _severitySounds[severity] ?? _selectedSoundFile;
-    if (soundFile.isNotEmpty) {
-      try {
-        if (soundFile.startsWith('sounds/')) {
-          await _audioPlayer.play(AssetSource(soundFile));
-        } else {
-          await _audioPlayer.play(DeviceFileSource(soundFile));
-        }
-      } catch (e) {
-        print('Error playing severity notification sound: $e');
-      }
-    }
-  }
-
   void _checkForNewProblems(List<Map<String, dynamic>> problems) {
     if (!_notificationsEnabled) return;
     
@@ -237,7 +240,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         }
       }
       
-      _playNotificationSoundForSeverity(highestSeverity);
+      SoundService.instance.playSoundForSeverity(highestSeverity);
       
       // Show popup for the first new problem
       if (firstNewProblem != null && mounted) {
@@ -1821,13 +1824,27 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
       );
 
       if (result != null && result.files.single.path != null) {
-        final filePath = result.files.single.path!;
+        final sourcePath = result.files.single.path!;
+        final sourceFile = File(sourcePath);
+        final fileName = p.basename(sourcePath);
+
+        // Get app's private directory
+        final appDir = await getApplicationDocumentsDirectory();
+        final soundsDir = Directory('${appDir.path}/sounds');
+        if (!await soundsDir.exists()) {
+          await soundsDir.create(recursive: true);
+        }
+
+        // Copy file to the new location
+        final newPath = '${soundsDir.path}/$fileName';
+        await sourceFile.copy(newPath);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Selected: ${result.files.single.name}')),
+            SnackBar(content: Text('Selected: $fileName')),
           );
         }
-        return filePath;
+        return newPath; // Return the new path
       }
     } catch (e) {
       if (mounted) {

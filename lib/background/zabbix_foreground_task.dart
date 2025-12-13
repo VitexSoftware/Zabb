@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../services/zabbix_polling_service.dart';
+import '../services/sound_service.dart';
 import '../services/notification_service.dart';
 
 class ZabbixTaskHandler extends TaskHandler {
@@ -21,6 +22,7 @@ class ZabbixTaskHandler extends TaskHandler {
     
     // Initialize services
     try {
+      await SoundService.instance.initialize();
       await NotificationService.instance.initialize();
       await NotificationService.instance.showBackgroundServiceNotification(
         status: 'Initializing Zabbix monitoring...',
@@ -149,6 +151,9 @@ class ZabbixTaskHandler extends TaskHandler {
             payload: alert.eventId,
           );
           
+          // Play sound for the new alert
+          await SoundService.instance.playSoundForSeverity(alert.severity);
+
           print('Sent notification for new alert: ${alert.name} (severity: ${alert.severity})');
         }
       }
