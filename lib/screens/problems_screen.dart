@@ -636,11 +636,39 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               _saveSortSettings();
             },
             onFilterChanged: (severity, hostname, filteredCount) {
-              setState(() {
-                _selectedSeverity = severity;
-                _selectedHostname = hostname;
-                _itemCount = filteredCount;
-              });
+              // If the filtered list is empty and a filter is active, clear the filters.
+              if (filteredCount == 0 && (severity != null || hostname != null)) {
+                if (mounted) {
+                  // Use a post-frame callback to safely update the state after the build.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        _selectedSeverity = null;
+                        _selectedHostname = null;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Filters cleared because no problems were found.'),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  });
+                }
+              } else {
+                if (mounted) {
+                  // Only call setState if there's an actual change to prevent potential loops.
+                  if (_selectedSeverity != severity ||
+                      _selectedHostname != hostname ||
+                      _itemCount != filteredCount) {
+                    setState(() {
+                      _selectedSeverity = severity;
+                      _selectedHostname = hostname;
+                      _itemCount = filteredCount;
+                    });
+                  }
+                }
+              }
             },
           );
         },
