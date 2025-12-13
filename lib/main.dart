@@ -7,6 +7,7 @@ import 'screens/configure_server_screen.dart';
 import 'services/auth_service.dart';
 import 'background/zabbix_foreground_task.dart';
 import 'services/notification_service.dart';
+import 'services/notification_handler_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
