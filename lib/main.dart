@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/screens/problems_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/configure_server_screen.dart';
 import 'services/auth_service.dart';
@@ -90,6 +91,56 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _autoTried = false;
   bool _backgroundMonitoringStarted = false;
+
+  Future<void> _launchGitHubUrl(BuildContext context) async {
+    final url = Uri.parse('https://github.com/VitexSoftware/Zabb');
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open GitHub: $e')),
+        );
+      }
+    }
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('About Zabb'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
+              const SizedBox(height: 8),
+              Text('Version 0.5.1', style: TextStyle(color: colorScheme.secondary)),
+              const SizedBox(height: 8),
+              const Text('Flutter-based mobile client for Zabbix monitoring'),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                icon: const Icon(Icons.link),
+                label: const Text('GitHub Repository'),
+                style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+                onPressed: () => _launchGitHubUrl(context),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Close'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -190,13 +241,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Server settings',
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.pushNamed(context, '/configure');
-            },
-          ),
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'reset') {
@@ -208,12 +252,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (context.mounted) {
                   Navigator.pushReplacementNamed(context, '/welcome');
                 }
+              } else if (value == 'about') {
+                _showAboutDialog(context);
+              } else if (value == 'settings') {
+                Navigator.pushNamed(context, '/configure');
               }
             },
             itemBuilder: (context) => const [
               PopupMenuItem<String>(
+                value: 'settings',
+                child: ListTile(
+                  leading: Icon(Icons.settings),
+                  title: Text('Server settings'),
+                ),
+              ),
+              PopupMenuItem<String>(
                 value: 'reset',
                 child: Text('Reset configuration'),
+              ),
+              PopupMenuItem<String>(
+                value: 'about',
+                child: Text('About'),
               ),
             ],
           ),

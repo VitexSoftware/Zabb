@@ -14,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 import '../services/sound_service.dart';
 import '../services/notification_handler_service.dart';
 import '../services/zabbix_polling_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
@@ -23,6 +24,53 @@ class ProblemsScreen extends StatefulWidget {
 }
 
 class _ProblemsScreenState extends State<ProblemsScreen> {
+    void _showAboutDialog(BuildContext context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('About Zabb'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
+                const SizedBox(height: 8),
+                Text('Version 0.5.1', style: TextStyle(color: colorScheme.secondary)),
+                const SizedBox(height: 8),
+                const Text('Flutter-based mobile client for Zabbix monitoring'),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  icon: const Icon(Icons.link),
+                  label: const Text('GitHub Repository'),
+                  style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+                  onPressed: () async {
+                    final url = Uri.parse('https://github.com/VitexSoftware/Zabb');
+                    try {
+                      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                        throw Exception('Could not launch $url');
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to open GitHub: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Close'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      );
+    }
   final _auth = AuthService.instance;
   late Future<List<Map<String, dynamic>>> _future;
   Timer? _refreshTimer;
@@ -62,6 +110,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   @override
   StreamSubscription? _notificationSubscription;
 
+  @override
   void initState() {
     super.initState();
     _future = _auth.fetchProblems();
@@ -583,11 +632,27 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          // Configuration button
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => _showConfigurationScreen(context),
-            tooltip: 'Settings',
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'about') {
+                _showAboutDialog(context);
+              } else if (value == 'settings') {
+                _showConfigurationScreen(context);
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'settings',
+                child: ListTile(
+                  leading: Icon(Icons.settings),
+                  title: Text('Configuration'),
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'about',
+                child: Text('About'),
+              ),
+            ],
           ),
         ],
       ),
@@ -1104,7 +1169,6 @@ class _ProblemsTable extends StatefulWidget {
   final Function(String, bool) onSortChanged;
   
   const _ProblemsTable({
-    super.key,
     required this.items, 
     required this.onDetails, 
     required this.onRefresh,

@@ -44,3 +44,4 @@ app.*.map.json
 
 *.deb
 *.apk
+.vscode/settings.json
