@@ -1017,6 +1017,15 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             ),
           ),
           actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.open_in_browser, size: 18),
+              label: const Text('Open in Zabbix'),
+              onPressed: eventId.isEmpty
+                  ? null
+                  : () async {
+                      await _openInZabbix(eventId, triggerId);
+                    },
+            ),
             TextButton(
               onPressed: eventId.isEmpty
                   ? null
@@ -1141,6 +1150,36 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  Future<void> _openInZabbix(String eventId, String triggerId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final serverUrl = prefs.getString('zbx_server');
+      
+      if (serverUrl == null || serverUrl.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Server URL not configured')),
+          );
+        }
+        return;
+      }
+      
+      // Construct Zabbix web URL - linking to the event details page
+      // Format: https://zabbix.server/tr_events.php?triggerid=XXXXX&eventid=YYYYY
+      final url = Uri.parse('$serverUrl/tr_events.php?triggerid=$triggerId&eventid=$eventId');
+      
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to open Zabbix: $e')),
+        );
+      }
     }
   }
 
