@@ -25,6 +25,7 @@ class ProblemsScreen extends StatefulWidget {
 class _ProblemsScreenState extends State<ProblemsScreen> {
     void _showAboutDialog(BuildContext context) {
       final colorScheme = Theme.of(context).colorScheme;
+      final screenSize = MediaQuery.of(context).size;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -32,6 +33,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
                 const SizedBox(height: 8),
@@ -57,6 +59,33 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                       }
                     }
                   },
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.business),
+                  label: const Text('Vitex Software'),
+                  style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+                  onPressed: () async {
+                    final url = Uri.parse('https://vitexsoftware.com/');
+                    try {
+                      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                        throw Exception('Could not launch $url');
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to open website: $e')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Image.asset(
+                    'assets/nymfette3-smile.png',
+                    width: screenSize.width * 0.8,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ],
             ),
