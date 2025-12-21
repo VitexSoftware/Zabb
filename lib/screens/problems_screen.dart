@@ -556,7 +556,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       'sounds/alert.mp3', 
       'sounds/bell.wav',
       'sounds/chime.flac',
-      'sounds/explosion.mp3'
+      'sounds/explosion.mp3',
+      'sounds/recovery.wav'
     ];
     
     showDialog(
@@ -2137,7 +2138,8 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
       'sounds/alert.mp3',
       'sounds/bell.wav', 
       'sounds/chime.flac',
-      'sounds/explosion.mp3'
+      'sounds/explosion.mp3',
+      'sounds/recovery.wav'
     ];
 
     return showDialog<String>(
