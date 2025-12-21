@@ -24,9 +24,13 @@ Zabb is a Flutter-based client for Zabbix monitoring system, enabling users to m
 ## Download
 
 ### 📱 Mobile (Android)
-- **[Download APK](https://github.com/VitexSoftware/Zabb/releases/download/v0.3.0/zabb_0.3.0_android.apk)** (25.0MB)
+
+[![F-Droid](https://img.shields.io/badge/F--Droid-pending-orange?logo=f-droid)](https://gitlab.com/fdroid/rfp)
+
+- **[Download APK](https://github.com/VitexSoftware/Zabb/releases/latest)** from GitHub Releases
+- **F-Droid**: Submission in progress
 - Requires Android 5.0+ 
-- Enable "Unknown Sources" for installation
+- Enable "Unknown Sources" for GitHub APK installation
 
 ### 🐧 Linux Desktop  
 - **[Download DEB Package](https://github.com/VitexSoftware/Zabb/releases/download/v0.3.0/zabb_0.3.0-1_amd64.deb)** (8.3MB)
