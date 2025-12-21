@@ -1,8 +1,8 @@
-# Zabb - Flutter Mobile Client for Zabbix
+# Zabb - Flutter Client for Zabbix
 
 ![Zabbix logo](assets/zabb.svg?raw=true)
 
-Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling users to monitor and manage Zabbix resources from their mobile devices.
+Zabb is a Flutter-based client for Zabbix monitoring system, enabling users to monitor and manage Zabbix resources from mobile devices, desktop, and web browsers.
 
 ## Features
 
@@ -32,6 +32,12 @@ Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling use
 - **[Download DEB Package](https://github.com/VitexSoftware/Zabb/releases/download/v0.3.0/zabb_0.3.0-1_amd64.deb)** (8.3MB)
 - For Debian/Ubuntu 64-bit systems
 - Install: `sudo dpkg -i zabb_0.3.0-1_amd64.deb`
+
+### 🌐 Web Version
+- Access Zabb directly in your browser (no installation required)
+- Full compatibility with Chrome, Firefox, Safari, and Edge
+- All core features available except background monitoring
+- Build yourself: `flutter build web --release`
 
 ### 📦 All Releases
 - **[View All Releases](https://github.com/VitexSoftware/Zabb/releases)** on GitHub
@@ -132,6 +138,47 @@ flutter build apk --release
 flutter build linux --release
 ```
 
+### Web
+
+```bash
+flutter build web --release
+```
+
+The web build will be output to `build/web/`. You can serve it with any static web server:
+
+```bash
+# Example using Python's built-in server
+cd build/web
+python3 -m http.server 8000
+```
+
+Then visit `http://localhost:8000` in your browser.
+
+## Platform Support
+
+Zabb works on multiple platforms with varying feature sets:
+
+### All Platforms
+✅ Zabbix authentication and login
+✅ Real-time problem monitoring
+✅ Problem filtering and sorting
+✅ Problem acknowledgment and closure
+✅ Trigger disable functionality
+✅ Bundled audio alerts
+✅ Configuration persistence
+
+### Mobile & Desktop Only
+📱 Background monitoring (when app is closed)
+📱 System notifications
+📱 Custom sound file uploads
+📱 Battery optimization management
+
+### Web Limitations
+⚠️ **Browser tab must remain open** for auto-refresh and alerts
+⚠️ **No system notifications** (alerts logged to browser console)
+⚠️ **Bundled sounds only** (no custom file uploads)
+⚠️ **No background monitoring** when tab is inactive
+
 ## API Compatibility
 
 - Supports Zabbix API 6.0+
@@ -151,6 +198,16 @@ flutter build linux --release
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Changelog
+
+### v0.7.0 (2025-12-21)
+
+- **NEW: Web Platform Support** - Full web browser compatibility
+- **NEW: Trigger Disable** - Disable triggers directly from problem details
+- **NEW: Zabbix Web Links** - Open problems and triggers in Zabbix web interface
+- Cross-platform compatibility (Mobile, Desktop, Web)
+- Platform-specific feature detection and graceful degradation
+- Bundled audio alerts work on all platforms
+- Conditional service initialization for web vs mobile
 
 ### v0.6.0 (2025-12-21)
 
