@@ -1721,11 +1721,17 @@ class _ProblemsTableState extends State<_ProblemsTable> {
             rows: const [], // Empty header table
           ),
         ),
-        // Scrollable content
+        // Scrollable content with pull-to-refresh
         Expanded(
-          child: ListView.builder(
-            itemCount: rows.length,
-            itemBuilder: (context, index) {
+          child: RefreshIndicator(
+            onRefresh: () async {
+              widget.onRefresh();
+              // Small delay to allow the refresh to start
+              await Future.delayed(const Duration(milliseconds: 100));
+            },
+            child: ListView.builder(
+              itemCount: rows.length,
+              itemBuilder: (context, index) {
               final p = rows[index];
               final severity = _valueInt(p['severity']);
               final clock = _valueInt(p['clock']);
@@ -1842,6 +1848,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
               );
             },
           ),
+        ),
         ),
       ],
     );
