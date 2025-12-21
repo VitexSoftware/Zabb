@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'notification_handler_service.dart';
 
 class NotificationService {
@@ -11,6 +12,13 @@ class NotificationService {
   bool _initialized = false;
 
   Future<void> initialize() async {
+    // Notifications are not available on web
+    if (kIsWeb) {
+      debugPrint('Notifications are not available on web platform');
+      _initialized = true;
+      return;
+    }
+    
     if (_initialized) return;
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -82,6 +90,8 @@ class NotificationService {
   }
 
   Future<String?> getLaunchNotification() async {
+    if (kIsWeb) return null;
+    
     final notification = await _notifications.getNotificationAppLaunchDetails();
     if (notification != null &&
         notification.didNotificationLaunchApp &&
@@ -97,6 +107,11 @@ class NotificationService {
     required int severity,
     String? payload,
   }) async {
+    if (kIsWeb) {
+      debugPrint('Notification (web - not shown): $title - $message');
+      return;
+    }
+    
     if (!_initialized) await initialize();
 
     final bool isCritical = severity >= 4; // High and disaster severity
@@ -150,6 +165,7 @@ class NotificationService {
     required String status,
     int? problemCount,
   }) async {
+    if (kIsWeb) return;
     if (!_initialized) await initialize();
 
     final androidDetails = AndroidNotificationDetails(
@@ -192,10 +208,12 @@ class NotificationService {
   }
 
   Future<void> cancelServiceNotification() async {
+    if (kIsWeb) return;
     await _notifications.cancel(999999);
   }
 
   Future<void> cancelAllNotifications() async {
+    if (kIsWeb) return;
     await _notifications.cancelAll();
   }
 

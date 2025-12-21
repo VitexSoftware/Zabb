@@ -1,30 +1,14 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 
 class ZabbixApi {
-  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? _createClient();
+  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? http.Client();
 
   final String serverUrl; // e.g. https://your-zabbix.example.com
   final http.Client _client;
   String? _authToken;
   int _requestId = 1;
-
-  static http.Client _createClient() {
-    final client = HttpClient();
-    // Allow bad certificates for testing - in production, you should use proper certificates
-    client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
-    // Set a reasonable timeout
-    client.connectionTimeout = const Duration(seconds: 30);
-    // Add more debugging
-    client.findProxy = (uri) {
-      print('Looking up proxy for: $uri');
-      return 'DIRECT';
-    };
-    return IOClient(client);
-  }
 
   bool get isAuthenticated => _authToken != null;
   String? get authToken => _authToken;
@@ -107,11 +91,12 @@ class ZabbixApi {
       
       // Handle common network errors with user-friendly messages
       String userMessage = 'Network error: ${e.toString()}';
-      if (e.toString().contains('SocketException') || e.toString().contains('Failed host lookup')) {
+      final errorString = e.toString();
+      if (errorString.contains('SocketException') || errorString.contains('Failed host lookup') || errorString.contains('NetworkException')) {
         userMessage = 'Cannot reach server. Please check:\n• Internet connection\n• Server URL is correct\n• Server is accessible from your network';
-      } else if (e.toString().contains('TimeoutException')) {
+      } else if (errorString.contains('TimeoutException') || errorString.contains('timeout')) {
         userMessage = 'Connection timeout. Server may be slow or unreachable.';
-      } else if (e.toString().contains('HandshakeException') || e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+      } else if (errorString.contains('HandshakeException') || errorString.contains('CERTIFICATE_VERIFY_FAILED') || errorString.contains('certificate')) {
         userMessage = 'SSL certificate error. Server certificate may be invalid or self-signed.';
       }
       

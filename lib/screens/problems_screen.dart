@@ -1,16 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/services/auth_service.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'dart:io';
-import 'package:path/path.dart' as p;
+import 'dart:io' if (dart.library.html) 'dart:html' as platform;
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import '../services/sound_service.dart';
 import '../services/notification_handler_service.dart';
 import '../services/zabbix_polling_service.dart';
@@ -563,6 +562,20 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   }
 
   Future<void> _pickCustomSoundFile(BuildContext context) async {
+    // Custom file upload is not available on web
+    if (kIsWeb) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Custom sound files are only available on mobile platforms. Please use the bundled sounds.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+    
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
@@ -2129,6 +2142,20 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
   }
 
   Future<String?> _pickCustomSoundFile() async {
+    // Custom file upload is not available on web
+    if (kIsWeb) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Custom sound files are only available on mobile platforms.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return null;
+    }
+    
+    // Mobile-only code - not executed on web
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
@@ -2137,26 +2164,15 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
 
       if (result != null && result.files.single.path != null) {
         final sourcePath = result.files.single.path!;
-        final sourceFile = File(sourcePath);
-        final fileName = p.basename(sourcePath);
-
-        // Get app's private directory
-        final appDir = await getApplicationDocumentsDirectory();
-        final soundsDir = Directory('${appDir.path}/sounds');
-        if (!await soundsDir.exists()) {
-          await soundsDir.create(recursive: true);
-        }
-
-        // Copy file to the new location
-        final newPath = '${soundsDir.path}/$fileName';
-        await sourceFile.copy(newPath);
-
+        final fileName = sourcePath.split('/').last;
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Selected: $fileName')),
           );
         }
-        return newPath; // Return the new path
+        // On mobile, just return the path directly
+        return sourcePath;
       }
     } catch (e) {
       if (mounted) {
