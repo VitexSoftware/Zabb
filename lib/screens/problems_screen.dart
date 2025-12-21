@@ -127,6 +127,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   bool _notificationsEnabled = true;
   String _selectedSoundFile = '';
   Map<int, String> _severitySounds = {};
+  String _recoverySoundFile = '';
   final AudioPlayer _audioPlayer = AudioPlayer();
   Set<String> _knownProblemIds = {};
   
@@ -298,6 +299,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     setState(() {
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
       _selectedSoundFile = prefs.getString('selected_sound_file') ?? '';
+      _recoverySoundFile = prefs.getString('recovery_sound_file') ?? '';
       
       // Load severity-specific sounds
       for (int severity = 0; severity <= 5; severity++) {
@@ -310,6 +312,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notifications_enabled', _notificationsEnabled);
     await prefs.setString('selected_sound_file', _selectedSoundFile);
+    await prefs.setString('recovery_sound_file', _recoverySoundFile);
     
     // Save severity-specific sounds
     for (int severity = 0; severity <= 5; severity++) {
@@ -370,6 +373,11 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   }
 
   void _showRecoveryNotification(int count) {
+    // Play recovery sound if configured
+    if (_recoverySoundFile.isNotEmpty) {
+      _playRecoverySound(_recoverySoundFile);
+    }
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -391,6 +399,18 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+  
+  Future<void> _playRecoverySound(String soundFile) async {
+    try {
+      if (soundFile.startsWith('sounds/')) {
+        await _audioPlayer.play(AssetSource(soundFile));
+      } else {
+        await _audioPlayer.play(DeviceFileSource(soundFile));
+      }
+    } catch (e) {
+      print('Error playing recovery sound: $e');
+    }
   }
 
   void _showNewProblemPopup(BuildContext context, Map<String, dynamic> problem, int totalNewProblems) {
@@ -516,11 +536,12 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             }
             _saveRefreshIntervalSetting(refreshInterval);
           },
-          onNotificationSettingsChanged: (enabled, defaultSound, severitySounds) {
+          onNotificationSettingsChanged: (enabled, defaultSound, severitySounds, recoverySound) {
             setState(() {
               _notificationsEnabled = enabled;
               _selectedSoundFile = defaultSound;
               _severitySounds = Map.from(severitySounds);
+              _recoverySoundFile = recoverySound;
             });
             _saveNotificationSettings();
           },
@@ -536,11 +557,13 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           notificationsEnabled: _notificationsEnabled,
           selectedSoundFile: _selectedSoundFile,
           severitySounds: Map.from(_severitySounds),
-          onSettingsChanged: (enabled, defaultSound, severitySounds) {
+          recoverySoundFile: _recoverySoundFile,
+          onSettingsChanged: (enabled, defaultSound, severitySounds, recoverySound) {
             setState(() {
               _notificationsEnabled = enabled;
               _selectedSoundFile = defaultSound;
               _severitySounds = Map.from(severitySounds);
+              _recoverySoundFile = recoverySound;
             });
             _saveNotificationSettings();
           },
@@ -1881,13 +1904,15 @@ class _NotificationConfigScreen extends StatefulWidget {
   final bool notificationsEnabled;
   final String selectedSoundFile;
   final Map<int, String> severitySounds;
-  final Function(bool, String, Map<int, String>) onSettingsChanged;
+  final String recoverySoundFile;
+  final Function(bool, String, Map<int, String>, String) onSettingsChanged;
   final AudioPlayer audioPlayer;
 
   const _NotificationConfigScreen({
     required this.notificationsEnabled,
     required this.selectedSoundFile,
     required this.severitySounds,
+    required this.recoverySoundFile,
     required this.onSettingsChanged,
     required this.audioPlayer,
   });
@@ -1900,6 +1925,7 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
   late bool _notificationsEnabled;
   late String _defaultSoundFile;
   late Map<int, String> _severitySounds;
+  late String _recoverySoundFile;
 
   final Map<int, String> _severityNames = {
     0: 'Not classified',
@@ -1925,6 +1951,7 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
     _notificationsEnabled = widget.notificationsEnabled;
     _defaultSoundFile = widget.selectedSoundFile;
     _severitySounds = Map.from(widget.severitySounds);
+    _recoverySoundFile = widget.recoverySoundFile;
   }
 
   @override
@@ -1990,6 +2017,74 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
                             IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () => _selectSoundForDefault(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Recovery sound configuration
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Recovery Sound', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text('Sound to play when problems are resolved', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      ListTile(
+                        leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                        title: const Text('Recovery Notification Sound'),
+                        subtitle: Text(
+                          _recoverySoundFile.isEmpty ? 'No sound selected' : _getDisplayName(_recoverySoundFile),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_recoverySoundFile.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.play_arrow),
+                                onPressed: () => _testSound(_recoverySoundFile),
+                              ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, size: 18),
+                              onSelected: (value) {
+                                if (value == 'select') {
+                                  _selectSoundForRecovery();
+                                } else if (value == 'clear') {
+                                  _clearRecoverySound();
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'select',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.audiotrack, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('Select Sound'),
+                                    ],
+                                  ),
+                                ),
+                                if (_recoverySoundFile.isNotEmpty)
+                                  const PopupMenuItem(
+                                    value: 'clear',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.clear, size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Clear'),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
@@ -2131,6 +2226,23 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
     });
     _saveSettings();
   }
+  
+  void _selectSoundForRecovery() async {
+    final result = await _showSoundSelectionDialog();
+    if (result != null) {
+      setState(() {
+        _recoverySoundFile = result;
+      });
+      _saveSettings();
+    }
+  }
+  
+  void _clearRecoverySound() {
+    setState(() {
+      _recoverySoundFile = '';
+    });
+    _saveSettings();
+  }
 
   Future<String?> _showSoundSelectionDialog() async {
     final soundOptions = [
@@ -2224,7 +2336,7 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
   }
 
   void _saveSettings() {
-    widget.onSettingsChanged(_notificationsEnabled, _defaultSoundFile, _severitySounds);
+    widget.onSettingsChanged(_notificationsEnabled, _defaultSoundFile, _severitySounds, _recoverySoundFile);
   }
 }
 
@@ -2238,7 +2350,7 @@ class _ConfigurationScreen extends StatefulWidget {
   final Map<int, String> severitySounds;
   final AudioPlayer audioPlayer;
   final Function(bool, bool, Map<int, bool>, int) onSettingsChanged;
-  final Function(bool, String, Map<int, String>) onNotificationSettingsChanged;
+  final Function(bool, String, Map<int, String>, String) onNotificationSettingsChanged;
 
   const _ConfigurationScreen({
     required this.ignoreAcknowledged,
@@ -2402,13 +2514,14 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                               notificationsEnabled: _notificationsEnabled,
                               selectedSoundFile: _selectedSoundFile,
                               severitySounds: Map.from(_severitySounds),
-                              onSettingsChanged: (enabled, defaultSound, severitySounds) {
+                              recoverySoundFile: '', // Recovery sound will be managed in parent screen
+                              onSettingsChanged: (enabled, defaultSound, severitySounds, recoverySound) {
                                 setState(() {
                                   _notificationsEnabled = enabled;
                                   _selectedSoundFile = defaultSound;
                                   _severitySounds = Map.from(severitySounds);
                                 });
-                                widget.onNotificationSettingsChanged(enabled, defaultSound, severitySounds);
+                                widget.onNotificationSettingsChanged(enabled, defaultSound, severitySounds, recoverySound);
                               },
                               audioPlayer: widget.audioPlayer,
                             ),
