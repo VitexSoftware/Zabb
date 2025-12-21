@@ -1706,7 +1706,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
-                label: const SizedBox(width: 60, child: Text('Duration', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 52, child: Text('Duration', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
@@ -1714,7 +1714,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                 onSort: (i, asc) => _updateSort(i, asc),
               ),
               DataColumn(
-                label: const SizedBox(width: 80, child: Text('Host', style: TextStyle(fontSize: 12))),
+                label: const SizedBox(width: 70, child: Text('Host', style: TextStyle(fontSize: 12))),
                 onSort: (i, asc) => _updateSort(i, asc),
               ),
             ],
@@ -1774,12 +1774,12 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                             : _buildDateTimeColumn(startDateTime),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 4),
                     // Duration column
                     GestureDetector(
                       onTap: () => widget.onDetails(p),
                       child: SizedBox(
-                        width: 60, 
+                        width: 52,
                         child: Text(
                           _formatDuration(duration), 
                           style: const TextStyle(fontSize: 11),
@@ -1817,7 +1817,7 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                     const SizedBox(width: 2),
                     // Host column - compact mobile layout
                     SizedBox(
-                      width: 80,
+                      width: 70,
                       child: GestureDetector(
                         onTap: () {
                           final newHostname = _selectedHostname == host ? null : host;
