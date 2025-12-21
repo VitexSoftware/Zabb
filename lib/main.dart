@@ -122,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
               const SizedBox(height: 8),
-              Text('Version 0.5.1', style: TextStyle(color: colorScheme.secondary)),
+              Text('Version 0.6.0', style: TextStyle(color: colorScheme.secondary)),
               const SizedBox(height: 8),
               const Text('Flutter-based mobile client for Zabbix monitoring'),
               const SizedBox(height: 16),
