@@ -35,6 +35,14 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                Center(
+                  child: SvgPicture.asset(
+                    'assets/zabb.svg',
+                    height: 80,
+                    width: 80,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
                 const SizedBox(height: 8),
                 Text('Version 0.5.1', style: TextStyle(color: colorScheme.secondary)),
