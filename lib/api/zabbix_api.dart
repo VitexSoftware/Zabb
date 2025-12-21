@@ -1,9 +1,26 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show HttpClient, SecurityContext;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 class ZabbixApi {
-  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? http.Client();
+  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? _createClient();
+  
+  static http.Client _createClient() {
+    // On web, use the default http.Client which automatically uses BrowserClient
+    if (kIsWeb) {
+      return http.Client();
+    }
+    
+    // On mobile/desktop, create a custom client that accepts self-signed certificates
+    final httpClient = HttpClient();
+    httpClient.badCertificateCallback = (cert, host, port) => true;
+    httpClient.connectionTimeout = const Duration(seconds: 30);
+    
+    return IOClient(httpClient);
+  }
 
   final String serverUrl; // e.g. https://your-zabbix.example.com
   final http.Client _client;
