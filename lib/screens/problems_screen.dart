@@ -84,6 +84,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   String? _selectedHostname;
   String _searchQuery = '';
   bool _ignoreAcknowledged = true; // Default enabled to hide acknowledged problems
+  bool _ignoreRecovered = true; // Default enabled to hide recovered problems
   int _refreshInterval = 30; // Default 30 seconds
   
   // Notification settings
@@ -116,6 +117,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     _future = _auth.fetchProblems();
     _startRefreshTimer();
     _loadIgnoreAcknowledgedSetting();
+    _loadIgnoreRecoveredSetting();
     _loadIgnoreSeveritySettings();
     _loadNotificationSettings();
     _loadSortSettings();
@@ -158,6 +160,21 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     await prefs.setBool('ignore_acknowledged', value);
     setState(() {
       _ignoreAcknowledged = value;
+    });
+  }
+
+  Future<void> _loadIgnoreRecoveredSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _ignoreRecovered = prefs.getBool('ignore_recovered') ?? true;
+    });
+  }
+
+  Future<void> _saveIgnoreRecoveredSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('ignore_recovered', value);
+    setState(() {
+      _ignoreRecovered = value;
     });
   }
 
@@ -270,6 +287,10 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     final currentProblemIds = problems.map((p) => p['eventid'].toString()).toSet();
     final newProblems = currentProblemIds.difference(_knownProblemIds);
     
+    // Check for recovered problems
+    final recoveredProblems = _knownProblemIds.difference(currentProblemIds);
+    
+    // Notify about new problems
     if (newProblems.isNotEmpty && _knownProblemIds.isNotEmpty) {
       // Find the highest severity of new problems and get the first new problem details
       int highestSeverity = 0;
@@ -295,6 +316,11 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       }
     }
     
+    // Notify about recovered problems
+    if (recoveredProblems.isNotEmpty && _knownProblemIds.isNotEmpty && mounted) {
+      _showRecoveryNotification(recoveredProblems.length);
+    }
+    
     _knownProblemIds = currentProblemIds;
   }
 
@@ -305,6 +331,30 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     } catch (e) {
       print('Error initializing known problems: $e');
     }
+  }
+
+  void _showRecoveryNotification(int count) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                count == 1 
+                    ? '1 problem recovered' 
+                    : '$count problems recovered',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green.shade700,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _showNewProblemPopup(BuildContext context, Map<String, dynamic> problem, int totalNewProblems) {
@@ -415,14 +465,16 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       MaterialPageRoute(
         builder: (context) => _ConfigurationScreen(
           ignoreAcknowledged: _ignoreAcknowledged,
+          ignoreRecovered: _ignoreRecovered,
           ignoreSeverities: Map.from(_ignoreSeverities),
           refreshInterval: _refreshInterval,
           notificationsEnabled: _notificationsEnabled,
           selectedSoundFile: _selectedSoundFile,
           severitySounds: Map.from(_severitySounds),
           audioPlayer: _audioPlayer,
-          onSettingsChanged: (ignoreAcknowledged, ignoreSeverities, refreshInterval) {
+          onSettingsChanged: (ignoreAcknowledged, ignoreRecovered, ignoreSeverities, refreshInterval) {
             _saveIgnoreAcknowledgedSetting(ignoreAcknowledged);
+            _saveIgnoreRecoveredSetting(ignoreRecovered);
             for (int severity = 0; severity <= 5; severity++) {
               _saveIgnoreSeveritySetting(severity, ignoreSeverities[severity] ?? false);
             }
@@ -690,6 +742,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             selectedHostname: _selectedHostname,
             searchQuery: _searchQuery,
             ignoreAcknowledged: _ignoreAcknowledged,
+            ignoreRecovered: _ignoreRecovered,
             ignoreSeverities: _ignoreSeverities,
             sortBy: _sortBy,
             sortAscending: _sortAscending,
@@ -1161,6 +1214,7 @@ class _ProblemsTable extends StatefulWidget {
   final String? selectedHostname;
   final String searchQuery;
   final bool ignoreAcknowledged;
+  final bool ignoreRecovered;
   final Map<int, bool> ignoreSeverities;
   final void Function(int?, String?, int) onFilterChanged;
   
@@ -1176,6 +1230,7 @@ class _ProblemsTable extends StatefulWidget {
     required this.selectedHostname,
     required this.searchQuery,
     required this.ignoreAcknowledged,
+    required this.ignoreRecovered,
     required this.ignoreSeverities,
     required this.onFilterChanged,
     required this.sortBy,
@@ -1290,6 +1345,14 @@ class _ProblemsTableState extends State<_ProblemsTable> {
       rows = rows.where((item) {
         final acknowledges = item['acknowledges'] as List?;
         return acknowledges == null || acknowledges.isEmpty;
+      }).toList();
+    }
+    
+    // Apply recovered filter if enabled
+    if (widget.ignoreRecovered) {
+      rows = rows.where((item) {
+        final rEventId = item['r_eventid']?.toString() ?? '';
+        return rEventId.isEmpty || rEventId == '0';
       }).toList();
     }
     
@@ -1447,6 +1510,8 @@ class _ProblemsTableState extends State<_ProblemsTable> {
               final name = _valueString(p['name'] ?? p['message']);
               final host = _hostOf(p);
               final acknowledged = (p['acknowledges'] is List) && (p['acknowledges'] as List).isNotEmpty;
+              final rEventId = p['r_eventid']?.toString() ?? '';
+              final isRecovered = rEventId.isNotEmpty && rEventId != '0';
               
               return Container(
                 decoration: BoxDecoration(
@@ -1503,11 +1568,18 @@ class _ProblemsTableState extends State<_ProblemsTable> {
                                 name,
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 2,
-                                style: const TextStyle(fontSize: 12, height: 1.2),
+                                style: TextStyle(
+                                  fontSize: 12, 
+                                  height: 1.2,
+                                  decoration: isRecovered ? TextDecoration.lineThrough : null,
+                                  color: isRecovered ? Colors.grey : Colors.black87,
+                                ),
                               ),
                             ),
-                            if (acknowledged) const SizedBox(width: 2),
-                            if (acknowledged) const Text('✅', style: TextStyle(fontSize: 10)),
+                            if (isRecovered) const SizedBox(width: 2),
+                            if (isRecovered) const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                            if (acknowledged && !isRecovered) const SizedBox(width: 2),
+                            if (acknowledged && !isRecovered) const Text('✅', style: TextStyle(fontSize: 10)),
                           ],
                         ),
                       ),
@@ -1953,17 +2025,19 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
 
 class _ConfigurationScreen extends StatefulWidget {
   final bool ignoreAcknowledged;
+  final bool ignoreRecovered;
   final Map<int, bool> ignoreSeverities;
   final int refreshInterval;
   final bool notificationsEnabled;
   final String selectedSoundFile;
   final Map<int, String> severitySounds;
   final AudioPlayer audioPlayer;
-  final Function(bool, Map<int, bool>, int) onSettingsChanged;
+  final Function(bool, bool, Map<int, bool>, int) onSettingsChanged;
   final Function(bool, String, Map<int, String>) onNotificationSettingsChanged;
 
   const _ConfigurationScreen({
     required this.ignoreAcknowledged,
+    required this.ignoreRecovered,
     required this.ignoreSeverities,
     required this.refreshInterval,
     required this.notificationsEnabled,
@@ -1980,6 +2054,7 @@ class _ConfigurationScreen extends StatefulWidget {
 
 class _ConfigurationScreenState extends State<_ConfigurationScreen> {
   late bool _ignoreAcknowledged;
+  late bool _ignoreRecovered;
   late Map<int, bool> _ignoreSeverities;
   late int _refreshInterval;
   late bool _notificationsEnabled;
@@ -2009,6 +2084,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
   void initState() {
     super.initState();
     _ignoreAcknowledged = widget.ignoreAcknowledged;
+    _ignoreRecovered = widget.ignoreRecovered;
     _ignoreSeverities = Map.from(widget.ignoreSeverities);
     _refreshInterval = widget.refreshInterval;
     _notificationsEnabled = widget.notificationsEnabled;
@@ -2220,6 +2296,19 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                       dense: true,
                     ),
                     const Divider(height: 8),
+                    SwitchListTile(
+                      title: const Text('Ignore Recovered', style: TextStyle(fontSize: 14)),
+                      subtitle: const Text('Hide recovered/resolved problems from the list', style: TextStyle(fontSize: 12)),
+                      value: _ignoreRecovered,
+                      onChanged: (value) {
+                        setState(() {
+                          _ignoreRecovered = value;
+                        });
+                      },
+                      secondary: const Icon(Icons.check_circle_outline, size: 18),
+                      dense: true,
+                    ),
+                    const Divider(height: 8),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Text('Ignore Severities', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -2269,6 +2358,6 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     }
     
     _refreshInterval = refreshValue;
-    widget.onSettingsChanged(_ignoreAcknowledged, _ignoreSeverities, _refreshInterval);
+    widget.onSettingsChanged(_ignoreAcknowledged, _ignoreRecovered, _ignoreSeverities, _refreshInterval);
   }
 }

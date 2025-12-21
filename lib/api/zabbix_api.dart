@@ -173,7 +173,7 @@ class ZabbixApi {
       throw ZabbixApiException('Not authenticated', {});
     }
     final params = {
-      'output': ['eventid', 'name', 'severity', 'clock', 'objectid'],
+      'output': ['eventid', 'name', 'severity', 'clock', 'objectid', 'r_eventid', 'r_clock', 'suppressed'],
       'selectAcknowledges': 'extend',
       'selectTags': 'extend',
       'severities': [0, 1, 2, 3, 4, 5],

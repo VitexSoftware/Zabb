@@ -18,7 +18,8 @@ Zabb is a Flutter-based mobile client for Zabbix monitoring system, enabling use
 - 📈 **Status Indicators** - Item counts, refresh timers, and visual status feedback
 - 💾 **Persistent Settings** - User preferences and sorting maintained across sessions
 - ⚙️ **Configuration Screen** - Comprehensive settings with ignore filters and notification setup
-- 🚨 **NEW: Problem Popup Alerts** - Immediate popup notifications when new problems are detected
+- 🚨 **Problem Popup Alerts** - Immediate popup notifications when new problems are detected
+- ✅ **Recovery State Handling** - Visual indicators for recovered problems with optional filtering and notifications
 
 ## Download
 
@@ -150,6 +151,14 @@ flutter build linux --release
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Changelog
+
+### v0.6.0 (2025-12-21)
+
+- **NEW: Recovery State Handling** - Detect and display recovered/resolved problems
+- Visual indicators for recovered problems with strikethrough text and green checkmark icon
+- Optional filter to hide recovered problems from the list (enabled by default)
+- Recovery notifications showing when problems are resolved
+- Enhanced API to fetch recovery event IDs and timestamps
 
 ### v0.3.0 (2025-12-01)
 
