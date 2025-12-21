@@ -1,0 +1,24 @@
+Zabb is a Flutter-based mobile client for Zabbix monitoring system, designed to bring enterprise IT infrastructure monitoring to your mobile device.
+
+Features:
+• Real-time problem monitoring with auto-refresh
+• Advanced filtering by severity and hostname
+• Search functionality across all problems
+• Problem acknowledgment and closure
+• Trigger disable functionality
+• Pull-to-refresh for instant updates
+• Audio notifications with customizable sounds per severity
+• Recovery sound notifications when problems are resolved
+• Multi-platform support (Android, iOS, Desktop, Web)
+• SSL support for self-signed certificates
+• Offline capability with local storage
+
+Platform Features:
+• Background monitoring (mobile & desktop)
+• System notifications
+• Custom sound file uploads
+• Battery optimization management
+
+Perfect for system administrators and IT professionals who need to monitor their Zabbix infrastructure on the go.
+
+Zabb connects directly to your Zabbix server via API and provides a clean, mobile-optimized interface for managing alerts and monitoring system health.

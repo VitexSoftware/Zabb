@@ -1,0 +1,6 @@
+• Web platform support - run in browsers
+• Pull-to-refresh functionality
+• Recovery sound notifications
+• Enhanced About dialog with branding
+• Optimized column layout for better text visibility
+• Fixed SSL certificate validation for self-signed certs
