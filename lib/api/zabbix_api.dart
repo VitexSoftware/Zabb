@@ -230,6 +230,25 @@ class ZabbixApi {
     }
     return null;
   }
+
+  Future<String> disableTrigger({required String triggerId}) async {
+    if (_authToken == null) {
+      throw ZabbixApiException('Not authenticated', {});
+    }
+    final params = {
+      'triggerid': triggerId,
+      'status': 1, // 0 = enabled, 1 = disabled
+    };
+    final response = await _post('trigger.update', params, auth: _authToken);
+    final result = response['result'];
+    if (result is Map && result['triggerids'] is List) {
+      final triggerIds = result['triggerids'] as List;
+      if (triggerIds.isNotEmpty) {
+        return triggerIds.first.toString();
+      }
+    }
+    throw ZabbixApiException('Unexpected trigger.update result', response);
+  }
 }
 
 class ZabbixApiException implements Exception {

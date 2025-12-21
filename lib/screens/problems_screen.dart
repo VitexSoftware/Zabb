@@ -1066,6 +1066,14 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                     },
               child: const Text('Close problem'),
             ),
+            TextButton(
+              onPressed: triggerId.isEmpty
+                  ? null
+                  : () async {
+                      await _disableTrigger(context, triggerId);
+                    },
+              child: const Text('Disable Trigger'),
+            ),
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
           ],
         );
@@ -1180,6 +1188,109 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           SnackBar(content: Text('Failed to open Zabbix: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _disableTrigger(BuildContext context, String triggerId) async {
+    // Show loading indicator
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Disabling trigger...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      await AuthService.instance.disableTrigger(triggerId: triggerId);
+      
+      if (!mounted) return;
+      Navigator.pop(context);
+      
+      // Refresh the problems list
+      setState(() {
+        _future = _auth.fetchProblems();
+      });
+      
+      // Get the trigger config URL
+      final configUrl = await AuthService.instance.getTriggerConfigUrl(triggerId);
+      
+      if (!mounted) return;
+      
+      // Show success message with link to re-enable
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('Trigger disabled successfully'),
+                ],
+              ),
+              if (configUrl != null) const SizedBox(height: 4),
+              if (configUrl != null) const Text(
+                'To re-enable this trigger, visit the Zabbix web interface',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 4),
+          action: configUrl != null
+              ? SnackBarAction(
+                  label: 'Open',
+                  textColor: Colors.white,
+                  onPressed: () async {
+                    try {
+                      final url = Uri.parse(configUrl);
+                      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                        throw Exception('Could not launch $url');
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to open link: $e')),
+                        );
+                      }
+                    }
+                  },
+                )
+              : null,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      
+      String errorMessage = 'Failed to disable trigger';
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('not authorized') || errorStr.contains('unauthorized')) {
+        errorMessage = 'Authentication required. Please log in again.';
+      } else if (errorStr.contains('permission')) {
+        errorMessage = 'Permission denied. You may not have rights to disable triggers.';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$errorMessage: $e'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 

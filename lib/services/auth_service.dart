@@ -191,4 +191,33 @@ class AuthService {
     }
     await api.closeEvent(eventId: eventId);
   }
+
+  Future<String> disableTrigger({required String triggerId}) async {
+    final api = await _ensureApi();
+    if (!api.isAuthenticated) {
+      await login();
+    }
+    try {
+      return await api.disableTrigger(triggerId: triggerId);
+    } catch (e) {
+      // If authorization failed, try a single re-login and retry once
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('not authorized') || msg.contains('unauthorized')) {
+        await login();
+        return await api.disableTrigger(triggerId: triggerId);
+      }
+      rethrow;
+    }
+  }
+
+  Future<String?> getTriggerConfigUrl(String triggerId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final serverUrl = prefs.getString('zbx_server');
+    
+    if (serverUrl == null || serverUrl.isEmpty) {
+      return null;
+    }
+    
+    return '$serverUrl/zabbix.php?action=trigger.edit&triggerid=$triggerId';
+  }
 }
