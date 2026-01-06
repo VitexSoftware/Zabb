@@ -8,7 +8,7 @@ class SoundService {
   SoundService._internal();
 
   final AudioPlayer _audioPlayer = AudioPlayer();
-  Map<int, String> _severitySounds = {};
+  final Map<int, String> _severitySounds = {};
   String _defaultSoundFile = '';
   bool _notificationsEnabled = false;
 
