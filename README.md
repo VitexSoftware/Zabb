@@ -19,6 +19,7 @@ Zabb is a Flutter-based client for Zabbix monitoring system, enabling users to m
 - 💾 **Persistent Settings** - User preferences and sorting maintained across sessions
 - ⚙️ **Configuration Screen** - Comprehensive settings with ignore filters and notification setup
 - 🚨 **Problem Popup Alerts** - Immediate popup notifications when new problems are detected
+- 🗑️ **Close All Popups** - Dismiss all stacked problem popups at once to quickly return to the dashboard
 - ✅ **Recovery State Handling** - Visual indicators for recovered problems with optional filtering and notifications
 
 ## Download
@@ -202,6 +203,13 @@ Zabb works on multiple platforms with varying feature sets:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Changelog
+
+### v0.8.0 (2026-02-25)
+
+- **NEW: Close All Popups** - Added "Close All (N)" button to problem popup dialogs to dismiss all stacked notifications at once
+- Prevents the main problems dashboard from becoming unreachable due to accumulated popup dialogs
+- Button only appears when 2 or more popups are stacked
+- Added widget tests for close-all popup behavior
 
 ### v0.7.0 (2025-12-21)
 

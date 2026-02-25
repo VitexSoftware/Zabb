@@ -134,6 +134,9 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   String _sortBy = 'clock'; // Default sort by time
   bool _sortAscending = false; // Default newest first
   
+  // Track open problem popup dialogs
+  int _openPopupCount = 0;
+  
   // Severity ignore settings (default: show all severities)
   final Map<int, bool> _ignoreSeverities = {
     0: false, // Not classified
@@ -424,10 +427,14 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         ? DateFormat('HH:mm:ss').format(DateTime.fromMillisecondsSinceEpoch(clock * 1000))
         : 'Unknown';
 
+    setState(() {
+      _openPopupCount++;
+    });
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             Icon(
@@ -488,13 +495,28 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           ],
         ),
         actions: [
+          if (_openPopupCount > 1)
+            TextButton(
+              onPressed: () {
+                _closeAllPopups(dialogContext);
+              },
+              child: Text('Close All ($_openPopupCount)'),
+            ),
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              setState(() {
+                _openPopupCount--;
+              });
+            },
             child: const Text('Dismiss'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              setState(() {
+                _openPopupCount--;
+              });
               _showDetails(context, problem);
             },
             child: const Text('View Details'),
@@ -502,6 +524,13 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         ],
       ),
     );
+  }
+
+  void _closeAllPopups(BuildContext dialogContext) {
+    Navigator.of(dialogContext).popUntil((route) => route is! DialogRoute);
+    setState(() {
+      _openPopupCount = 0;
+    });
   }
 
   Color _getColorForSeverity(int severity) {
