@@ -1,6 +1,6 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 
 class SoundService {
   static final SoundService _instance = SoundService._internal();
@@ -43,13 +43,13 @@ class SoundService {
         } else {
           // On web, device files are not available, fall back to default
           if (kIsWeb) {
-            print('Custom sound files not available on web, using bundled sounds only');
+            debugPrint('Custom sound files not available on web, using bundled sounds only');
           } else {
             await _audioPlayer.play(DeviceFileSource(soundFile));
           }
         }
       } catch (e) {
-        print('Error playing notification sound: $e');
+        debugPrint('Error playing notification sound: $e');
       }
     }
   }

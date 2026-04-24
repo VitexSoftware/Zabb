@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io' show HttpClient, SecurityContext;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show HttpClient;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -36,7 +36,7 @@ class ZabbixApi {
     // Add IP fallback for zabbix.spojenet.cz to bypass DNS issues
     if (base.contains('zabbix.spojenet.cz')) {
       base = base.replaceAll('zabbix.spojenet.cz', '77.87.240.70');
-      print('Using IP fallback: $base');
+      debugPrint('Using IP fallback: $base');
     }
     
     if (base.endsWith('/api_jsonrpc.php')) {
@@ -75,8 +75,8 @@ class ZabbixApi {
       'id': _requestId++,
     });
     
-    print('Making request to: $_endpoint');
-    print('Method: $method');
+    debugPrint('Making request to: $_endpoint');
+    debugPrint('Method: $method');
     
     try {
       final resp = await _client.post(
@@ -92,14 +92,14 @@ class ZabbixApi {
       if (resp.statusCode != 200) {
         // Print to stdout for easier debugging on Linux
         // ignore: avoid_print
-        print('HTTP error ${resp.statusCode}: ${resp.body}');
+        debugPrint('HTTP error ${resp.statusCode}: ${resp.body}');
         throw ZabbixApiException('HTTP ${resp.statusCode}', {'body': resp.body});
       }
       final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
       if (decoded.containsKey('error')) {
         // Print to stdout for easier debugging on Linux
         // ignore: avoid_print
-        print('Zabbix API error: ${jsonEncode(decoded['error'])}');
+        debugPrint('Zabbix API error: ${jsonEncode(decoded['error'])}');
         throw ZabbixApiException('API error', decoded['error'] as Map<String, dynamic>);
       }
       return decoded;

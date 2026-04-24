@@ -102,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Could not launch $url');
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to open GitHub: $e')),
         );
@@ -122,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
               const SizedBox(height: 8),
-              Text('Version 0.6.0', style: TextStyle(color: colorScheme.secondary)),
+              Text('Version 0.6.1', style: TextStyle(color: colorScheme.secondary)),
               const SizedBox(height: 8),
               const Text('Flutter-based mobile client for Zabbix monitoring'),
               const SizedBox(height: 16),
@@ -163,18 +163,19 @@ class _LoginScreenState extends State<LoginScreen> {
       final pass = prefs.getString('zbx_password') ?? '';
       final configured = prefs.getBool('zbx_configured') ?? false;
       
-      print('AutoLogin - Configured: $configured, Server: $server, User: $user');
+      debugPrint('AutoLogin - Configured: $configured, Server: $server, User: $user');
       
       if (configured && server.isNotEmpty && user.isNotEmpty && pass.isNotEmpty) {
-        print('AutoLogin - Attempting login...');
+        debugPrint('AutoLogin - Attempting login...');
         final token = await AuthService.instance.login();
         if (!mounted) return;
         
-        print('AutoLogin - Login successful, token: ${token.substring(0, 8)}...');
+        debugPrint('AutoLogin - Login successful, token: ${token.substring(0, 8)}...');
         
         // Start background monitoring after successful login
         await _startBackgroundMonitoring();
-        
+        if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Authenticated. Token: ${token.substring(0, 8)}...')),
         );
@@ -182,11 +183,11 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (_) => const ProblemsScreen()),
         );
       } else {
-        print('AutoLogin - Skipped (not configured or missing credentials)');
+        debugPrint('AutoLogin - Skipped (not configured or missing credentials)');
       }
     } catch (e, stackTrace) {
-      print('AutoLogin - Error: $e');
-      print('AutoLogin - Stack trace: $stackTrace');
+      debugPrint('AutoLogin - Error: $e');
+      debugPrint('AutoLogin - Stack trace: $stackTrace');
       if (!mounted) return;
       
       // Show a more detailed error message
@@ -208,12 +209,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _startBackgroundMonitoring() async {
     // Background monitoring is not available on web
     if (kIsWeb) {
-      print('Background monitoring is not available on web platform');
+      debugPrint('Background monitoring is not available on web platform');
       return;
     }
     
     if (_backgroundMonitoringStarted) {
-      print('Background monitoring already started, skipping...');
+      debugPrint('Background monitoring already started, skipping...');
       return;
     }
     

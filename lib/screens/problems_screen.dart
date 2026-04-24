@@ -44,7 +44,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                 const SizedBox(height: 16),
                 Text('Zabb', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
                 const SizedBox(height: 8),
-                Text('Version 0.6.0', style: TextStyle(color: colorScheme.secondary)),
+                Text('Version 0.6.1', style: TextStyle(color: colorScheme.secondary)),
                 const SizedBox(height: 8),
                 const Text('Flutter-based mobile client for Zabbix monitoring'),
                 const SizedBox(height: 16),
@@ -59,7 +59,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                         throw Exception('Could not launch $url');
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Failed to open GitHub: $e')),
                         );
@@ -78,7 +78,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                         throw Exception('Could not launch $url');
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Failed to open website: $e')),
                         );
@@ -147,7 +147,6 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     5: false, // Disaster
   };
 
-  @override
   StreamSubscription? _notificationSubscription;
 
   @override
@@ -177,6 +176,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   Future<void> _handleNotificationTap(String eventId) async {
     final problem = await ZabbixPollingService.instance.getProblemById(eventId);
     if (problem != null) {
+      if (!mounted) return;
       _showDetails(context, problem.toJson());
     } else {
       if (mounted) {
@@ -370,7 +370,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       final problems = await _auth.fetchProblems();
       _knownProblemIds = problems.map((p) => p['eventid'].toString()).toSet();
     } catch (e) {
-      print('Error initializing known problems: $e');
+      debugPrint('Error initializing known problems: $e');
     }
   }
 
@@ -411,7 +411,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         await _audioPlayer.play(DeviceFileSource(soundFile));
       }
     } catch (e) {
-      print('Error playing recovery sound: $e');
+      debugPrint('Error playing recovery sound: $e');
     }
   }
 
@@ -578,129 +578,6 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     );
   }
 
-  void _showNotificationConfigScreen(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => _NotificationConfigScreen(
-          notificationsEnabled: _notificationsEnabled,
-          selectedSoundFile: _selectedSoundFile,
-          severitySounds: Map.from(_severitySounds),
-          recoverySoundFile: _recoverySoundFile,
-          onSettingsChanged: (enabled, defaultSound, severitySounds, recoverySound) {
-            setState(() {
-              _notificationsEnabled = enabled;
-              _selectedSoundFile = defaultSound;
-              _severitySounds = Map.from(severitySounds);
-              _recoverySoundFile = recoverySound;
-            });
-            _saveNotificationSettings();
-          },
-          audioPlayer: _audioPlayer,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectSoundFile(BuildContext context) async {
-    final List<String> soundOptions = [
-      'sounds/notification.wav',
-      'sounds/alert.mp3', 
-      'sounds/bell.wav',
-      'sounds/chime.flac',
-      'sounds/explosion.mp3',
-      'sounds/recovery.wav'
-    ];
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Sound', style: TextStyle(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...soundOptions.map((sound) => ListTile(
-              leading: const Icon(Icons.music_note, size: 18),
-              title: Text(sound.split('/').last, style: const TextStyle(fontSize: 14)),
-              onTap: () {
-                setState(() {
-                  _selectedSoundFile = sound;
-                });
-                _saveNotificationSettings();
-                Navigator.pop(context);
-              },
-              dense: true,
-            )),
-            const Divider(height: 8),
-            ListTile(
-              leading: const Icon(Icons.folder_open, size: 18),
-              title: const Text('Browse Files...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-              subtitle: const Text('Choose custom audio file', style: TextStyle(fontSize: 11)),
-              onTap: () => _pickCustomSoundFile(context),
-              dense: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickCustomSoundFile(BuildContext context) async {
-    // Custom file upload is not available on web
-    if (kIsWeb) {
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Custom sound files are only available on mobile platforms. Please use the bundled sounds.'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-      return;
-    }
-    
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
-        allowMultiple: false,
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final String filePath = result.files.single.path!;
-        setState(() {
-          _selectedSoundFile = filePath;
-        });
-        await _saveNotificationSettings();
-        
-        if (context.mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Selected: ${result.files.single.name}'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      print('Error picking sound file: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error selecting file. Please try again.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -819,7 +696,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           if (snapshot.hasError) {
             // Print errors to stdout for easier debugging on Linux
             // ignore: avoid_print
-            print('ProblemsScreen error: ${snapshot.error}');
+            debugPrint('ProblemsScreen error: ${snapshot.error}');
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           final items = snapshot.data ?? const [];
@@ -1132,18 +1009,19 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               onPressed: eventId.isEmpty
                   ? null
                   : () async {
+                      final nav = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
                       try {
                         await AuthService.instance.acknowledgeEvent(eventId: eventId);
                         if (!mounted) return;
-                        Navigator.pop(context);
-                        // Refresh the problems list
+                        nav.pop();
                         setState(() {
                           _future = _auth.fetchProblems();
                         });
                       } catch (e) {
                         if (!mounted) return;
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Acknowledge failed: $e')));
+                        nav.pop();
+                        messenger.showSnackBar(SnackBar(content: Text('Acknowledge failed: $e')));
                       }
                     },
               child: const Text('Acknowledge'),
@@ -1152,18 +1030,19 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
               onPressed: eventId.isEmpty
                   ? null
                   : () async {
+                      final nav = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
                       try {
                         await AuthService.instance.closeEvent(eventId: eventId);
                         if (!mounted) return;
-                        Navigator.pop(context);
-                        // Refresh the problems list
+                        nav.pop();
                         setState(() {
                           _future = _auth.fetchProblems();
                         });
                       } catch (e) {
                         if (!mounted) return;
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Close failed: $e')));
+                        nav.pop();
+                        messenger.showSnackBar(SnackBar(content: Text('Close failed: $e')));
                       }
                     },
               child: const Text('Close problem'),
@@ -1294,9 +1173,10 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   }
 
   Future<void> _disableTrigger(BuildContext context, String triggerId) async {
-    // Show loading indicator
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
       const SnackBar(
         content: Row(
           children: [
@@ -1315,22 +1195,22 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
 
     try {
       await AuthService.instance.disableTrigger(triggerId: triggerId);
-      
+
       if (!mounted) return;
-      Navigator.pop(context);
-      
+      navigator.pop();
+
       // Refresh the problems list
       setState(() {
         _future = _auth.fetchProblems();
       });
-      
+
       // Get the trigger config URL
       final configUrl = await AuthService.instance.getTriggerConfigUrl(triggerId);
-      
+
       if (!mounted) return;
-      
+
       // Show success message with link to re-enable
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1364,7 +1244,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
                       }
                     } catch (e) {
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           SnackBar(content: Text('Failed to open link: $e')),
                         );
                       }
@@ -1376,8 +1256,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      
+      navigator.pop();
+
       String errorMessage = 'Failed to disable trigger';
       final errorStr = e.toString().toLowerCase();
       if (errorStr.contains('not authorized') || errorStr.contains('unauthorized')) {
@@ -1385,8 +1265,8 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
       } else if (errorStr.contains('permission')) {
         errorMessage = 'Permission denied. You may not have rights to disable triggers.';
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
+
+      messenger.showSnackBar(
         SnackBar(
           content: Text('$errorMessage: $e'),
           backgroundColor: Colors.red.shade700,
@@ -1394,45 +1274,6 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
         ),
       );
     }
-  }
-
-  List<Widget> _buildSeveritySwitches(BuildContext context) {
-    final severityNames = {
-      0: 'Not classified',
-      1: 'Information',
-      2: 'Warning',
-      3: 'Average',
-      4: 'High',
-      5: 'Disaster',
-    };
-    
-    final severityIcons = {
-      0: Icons.help_outline,
-      1: Icons.info_outline,
-      2: Icons.warning_amber_outlined,
-      3: Icons.error_outline,
-      4: Icons.priority_high,
-      5: Icons.dangerous_outlined,
-    };
-
-    return severityNames.entries.map((entry) {
-      final severity = entry.key;
-      final name = entry.value;
-      final icon = severityIcons[severity] ?? Icons.circle_outlined;
-      
-      return SwitchListTile(
-        title: Text('Ignore $name', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-        subtitle: null,
-        value: _ignoreSeverities[severity] ?? false,
-        onChanged: (value) {
-          _saveIgnoreSeveritySetting(severity, value);
-        },
-        secondary: Icon(icon, size: 16),
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: -4),
-        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-      );
-    }).toList();
   }
 
   String _getSeverityText(int severity) {
@@ -2307,9 +2148,8 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
               leading: const Icon(Icons.folder_open, size: 18),
               title: const Text('Browse Files...'),
               onTap: () async {
-                Navigator.pop(context);
                 final customFile = await _pickCustomSoundFile();
-                if (customFile != null) {
+                if (context.mounted) {
                   Navigator.of(context).pop(customFile);
                 }
               },
@@ -2500,18 +2340,20 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                       title: const Text('Logout', style: TextStyle(color: Colors.red, fontSize: 14)),
                       subtitle: const Text('Sign out from current session', style: TextStyle(fontSize: 12)),
                       onTap: () async {
+                        final nav = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
                         try {
                           final auth = AuthService.instance;
                           await auth.logout();
                           if (mounted) {
-                            Navigator.of(context).pushNamedAndRemoveUntil(
+                            nav.pushNamedAndRemoveUntil(
                               '/welcome',
                               (route) => false,
                             );
                           }
                         } catch (e) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(content: Text('Logout failed: $e')),
                             );
                           }

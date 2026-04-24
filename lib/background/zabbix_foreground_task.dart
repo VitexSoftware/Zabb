@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../services/zabbix_polling_service.dart';
 import '../services/sound_service.dart';
@@ -29,7 +30,7 @@ class ZabbixTaskHandler extends TaskHandler {
       );
     } catch (e) {
       // Continue even if notifications fail
-      print('Failed to initialize notifications: $e');
+      debugPrint('Failed to initialize notifications: $e');
     }
 
     // Send initial status
@@ -38,7 +39,7 @@ class ZabbixTaskHandler extends TaskHandler {
       _lastCheckKey: timestamp.toIso8601String(),
     });
 
-    print('ZabbixTaskHandler started at $timestamp');
+    debugPrint('ZabbixTaskHandler started at $timestamp');
   }
 
   @override
@@ -66,10 +67,10 @@ class ZabbixTaskHandler extends TaskHandler {
         _lastCheckKey: timestamp.toIso8601String(),
       });
       
-      print('Zabbix poll completed: ${alertState.totalAlerts} alerts, connection: ${alertState.hasConnection}');
+      debugPrint('Zabbix poll completed: ${alertState.totalAlerts} alerts, connection: ${alertState.hasConnection}');
       
     } catch (e) {
-      print('Error during Zabbix polling: $e');
+      debugPrint('Error during Zabbix polling: $e');
       
       // Send error status
       _sendToMainIsolate({
@@ -83,7 +84,7 @@ class ZabbixTaskHandler extends TaskHandler {
           status: 'Monitoring error: ${e.toString()}',
         );
       } catch (notifError) {
-        print('Failed to show error notification: $notifError');
+        debugPrint('Failed to show error notification: $notifError');
       }
     } finally {
       _isPolling = false;
@@ -92,14 +93,14 @@ class ZabbixTaskHandler extends TaskHandler {
 
   @override
   Future<void> onDestroy(DateTime timestamp, SendPort? sendPort) async {
-    print('ZabbixTaskHandler destroyed at $timestamp');
+    debugPrint('ZabbixTaskHandler destroyed at $timestamp');
     
     _pollTimer?.cancel();
     
     try {
       await NotificationService.instance.cancelServiceNotification();
     } catch (e) {
-      print('Failed to cancel service notification: $e');
+      debugPrint('Failed to cancel service notification: $e');
     }
     
     _sendToMainIsolate({
@@ -126,7 +127,7 @@ class ZabbixTaskHandler extends TaskHandler {
         problemCount: alertState.totalAlerts,
       );
     } catch (e) {
-      print('Failed to update service notification: $e');
+      debugPrint('Failed to update service notification: $e');
     }
   }
 
@@ -154,11 +155,11 @@ class ZabbixTaskHandler extends TaskHandler {
           // Play sound for the new alert
           await SoundService.instance.playSoundForSeverity(alert.severity);
 
-          print('Sent notification for new alert: ${alert.name} (severity: ${alert.severity})');
+          debugPrint('Sent notification for new alert: ${alert.name} (severity: ${alert.severity})');
         }
       }
     } catch (e) {
-      print('Failed to send alert notifications: $e');
+      debugPrint('Failed to send alert notifications: $e');
     }
   }
 
@@ -166,7 +167,7 @@ class ZabbixTaskHandler extends TaskHandler {
     try {
       _sendPort?.send(data);
     } catch (e) {
-      print('Failed to send data to main isolate: $e');
+      debugPrint('Failed to send data to main isolate: $e');
     }
   }
 }
@@ -216,7 +217,7 @@ class ZabbixBackgroundTaskManager {
 
       return true;
     } catch (e) {
-      print('Failed to initialize background task manager: $e');
+      debugPrint('Failed to initialize background task manager: $e');
       return false;
     }
   }
@@ -225,7 +226,7 @@ class ZabbixBackgroundTaskManager {
     try {
       // Check if task is already running
       if (await FlutterForegroundTask.isRunningService) {
-        print('Background task is already running');
+        debugPrint('Background task is already running');
         return true;
       }
 
@@ -237,7 +238,7 @@ class ZabbixBackgroundTaskManager {
       );
 
       if (serviceRequestResult) {
-        print('Background monitoring started successfully');
+        debugPrint('Background monitoring started successfully');
         
         // Set up data stream to receive updates from background task
         final receivePort = FlutterForegroundTask.receivePort;
@@ -245,22 +246,22 @@ class ZabbixBackgroundTaskManager {
           _dataStream = receivePort.asBroadcastStream().cast<Map<String, dynamic>>();
           _dataSubscription = _dataStream!.listen(
             (data) {
-              print('Received from background task: $data');
+              debugPrint('Received from background task: $data');
               // Handle background task updates here if needed
             },
             onError: (error) {
-              print('Error receiving background task data: $error');
+              debugPrint('Error receiving background task data: $error');
             },
           );
         }
         
         return true;
       } else {
-        print('Failed to start background service');
+        debugPrint('Failed to start background service');
         return false;
       }
     } catch (e) {
-      print('Error starting background monitoring: $e');
+      debugPrint('Error starting background monitoring: $e');
       return false;
     }
   }
@@ -272,10 +273,10 @@ class ZabbixBackgroundTaskManager {
       _dataStream = null;
 
       final result = await FlutterForegroundTask.stopService();
-      print('Background monitoring stopped: $result');
+      debugPrint('Background monitoring stopped: $result');
       return result;
     } catch (e) {
-      print('Error stopping background monitoring: $e');
+      debugPrint('Error stopping background monitoring: $e');
       return false;
     }
   }
@@ -291,7 +292,7 @@ class ZabbixBackgroundTaskManager {
         await FlutterForegroundTask.requestIgnoreBatteryOptimization();
       }
     } catch (e) {
-      print('Failed to request battery optimization exemption: $e');
+      debugPrint('Failed to request battery optimization exemption: $e');
     }
   }
 

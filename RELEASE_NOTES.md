@@ -1,3 +1,34 @@
+# Release Notes - Zabb v0.6.1
+
+**Release Date:** April 24, 2026
+
+## Bug Fixes & Code Quality
+
+### Fixed
+- **BuildContext safety** — all usages of `BuildContext` across async gaps now properly guard
+  with `mounted` / `context.mounted` checks or pre-capture `Navigator`/`ScaffoldMessenger`
+  before the `await`. Prevents rare crashes when a widget is unmounted mid-operation.
+- **Browse Files sound picker** — selecting a custom audio file via the file browser was
+  silently discarded because the dialog was dismissed before the file picker returned. The
+  double-pop is removed; the dialog now closes once with the selected path.
+- **Invalid `@override`** on `_notificationSubscription` field removed (would suppress
+  compile warnings about missing override contracts).
+- **Unused `SecurityContext` import** removed from `zabbix_api.dart`.
+
+### Improved
+- Replaced all `print()` calls with `debugPrint()` so debug output is suppressed in release
+  builds and respects the Flutter log level.
+- Removed three dead private methods that had no callers:
+  `_showNotificationConfigScreen`, `_selectSoundFile(BuildContext)`,
+  `_buildSeveritySwitches`.
+
+### Tests
+- Fixed `widget_test.dart`: SharedPreferences was not mocked, causing the `FutureBuilder`
+  to stay in loading state and the `Configure Server` assertion to fail.
+- Added routing test: verifies `LoginScreen` is shown when the app is already configured.
+
+---
+
 # Release Notes - Zabb v0.1.0
 
 **Release Date:** December 1, 2025

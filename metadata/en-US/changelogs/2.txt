@@ -1,0 +1,6 @@
+• Fix BuildContext used across async gaps (prevents rare crashes on widget unmount)
+• Fix Browse Files sound picker — selected file was silently lost due to double-pop bug
+• Replace all debug print() calls with debugPrint() (no output in release builds)
+• Remove unused dead code: _showNotificationConfigScreen, _selectSoundFile, _buildSeveritySwitches
+• Remove invalid @override annotation on _notificationSubscription field
+• Remove unused SecurityContext import
