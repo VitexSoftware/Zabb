@@ -53,6 +53,10 @@ Zabb is a Flutter-based client for Zabbix monitoring system, enabling users to m
 
 ![Problems Screen](screenshots/problems.png?raw=true)
 
+### Problem Popup Alert
+
+![Problem Popup Alert](screenshots/problem_popup.png?raw=true)
+
 ### Configuration Dialog  
 
 ![Configuration Screen](screenshots/configuration.png?raw=true)
