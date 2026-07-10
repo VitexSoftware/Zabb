@@ -14,6 +14,25 @@ import '../services/notification_handler_service.dart';
 import '../services/zabbix_polling_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// Recovery sounds are low-urgency: unlike problem alerts, they must not
+// stop music the user is already listening to elsewhere on the device.
+final AudioContext nonInterruptingAudioContext = AudioContext(
+  android: const AudioContextAndroid(
+    contentType: AndroidContentType.sonification,
+    usageType: AndroidUsageType.notificationEvent,
+    audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+  ),
+  iOS: AudioContextIOS(
+    category: AVAudioSessionCategory.ambient,
+  ),
+);
+
+// The library's default context (explicit here since `_audioPlayer` and
+// `widget.audioPlayer` are shared across recovery and severity sound calls —
+// always setting a context, rather than leaving null, avoids a previously
+// set [nonInterruptingAudioContext] from leaking into a later severity play).
+final AudioContext defaultAudioContext = AudioContext();
+
 class ProblemsScreen extends StatefulWidget {
   const ProblemsScreen({super.key});
 
@@ -406,9 +425,15 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
   Future<void> _playRecoverySound(String soundFile) async {
     try {
       if (soundFile.startsWith('sounds/')) {
-        await _audioPlayer.play(AssetSource(soundFile));
+        await _audioPlayer.play(
+          AssetSource(soundFile),
+          ctx: nonInterruptingAudioContext,
+        );
       } else {
-        await _audioPlayer.play(DeviceFileSource(soundFile));
+        await _audioPlayer.play(
+          DeviceFileSource(soundFile),
+          ctx: nonInterruptingAudioContext,
+        );
       }
     } catch (e) {
       debugPrint('Error playing recovery sound: $e');
@@ -1927,7 +1952,10 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
                             if (_recoverySoundFile.isNotEmpty)
                               IconButton(
                                 icon: const Icon(Icons.play_arrow),
-                                onPressed: () => _testSound(_recoverySoundFile),
+                                onPressed: () => _testSound(
+                                  _recoverySoundFile,
+                                  isRecovery: true,
+                                ),
                               ),
                             PopupMenuButton<String>(
                               icon: const Icon(Icons.more_vert, size: 18),
@@ -2060,12 +2088,14 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
     return soundFile.split('/').last;
   }
 
-  Future<void> _testSound(String soundFile) async {
+  Future<void> _testSound(String soundFile, {bool isRecovery = false}) async {
     try {
+      final ctx =
+          isRecovery ? nonInterruptingAudioContext : defaultAudioContext;
       if (soundFile.startsWith('sounds/')) {
-        await widget.audioPlayer.play(AssetSource(soundFile));
+        await widget.audioPlayer.play(AssetSource(soundFile), ctx: ctx);
       } else {
-        await widget.audioPlayer.play(DeviceFileSource(soundFile));
+        await widget.audioPlayer.play(DeviceFileSource(soundFile), ctx: ctx);
       }
     } catch (e) {
       if (mounted) {
