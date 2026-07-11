@@ -208,6 +208,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Changelog
 
+### v0.6.3 (2026-07-11)
+
+- **FIX: Recovery sound no longer stops music** - Recovery (problem resolved) notification sounds now use non-interrupting audio focus, so music playing elsewhere on the device ducks briefly instead of being stopped. Problem-alert sounds are unchanged.
+- **FIX: Android app label** - Corrected the launcher/app-drawer name from lowercase "zabb" to "Zabb"
+
 ### v0.8.0 (2026-02-25)
 
 - **NEW: Close All Popups** - Added "Close All (N)" button to problem popup dialogs to dismiss all stacked notifications at once
