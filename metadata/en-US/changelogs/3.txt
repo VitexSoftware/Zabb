@@ -1,0 +1,3 @@
+• Fix recovery notification sound stopping other apps' music instead of ducking/resuming
+• Fix Android launcher app label showing lowercase "zabb" instead of "Zabb"
+• Add screenshot of the new-problem popup alert to the app listing
