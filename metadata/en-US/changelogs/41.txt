@@ -1,0 +1,1 @@
+• Build separate, smaller APKs per CPU architecture (ABI split) instead of one universal APK

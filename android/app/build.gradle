@@ -1,3 +1,5 @@
+import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -42,6 +44,23 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// F-Droid builds separate, smaller APKs per ABI (see --split-per-abi in the
+// build recipe). Each split APK needs a distinct versionCode, or the F-Droid
+// client can't tell which one is newer / installable on a given device.
+// The ABI digit goes in the lowest position so ordering across releases is
+// preserved: baseVersionCode * 10 + abiCode. A universal (non-split) build
+// has no ABI output filter, so its versionCode is left untouched.
+def abiCodes = ['armeabi-v7a': 1, 'arm64-v8a': 2, 'x86_64': 3]
+
+android.applicationVariants.configureEach { variant ->
+    variant.outputs.forEach { output ->
+        def abiVersionCode = abiCodes[output.filters.find { it.filterType == 'ABI' }?.identifier]
+        if (abiVersionCode != null) {
+            ((ApkVariantOutputImpl) output).versionCodeOverride = variant.versionCode * 10 + abiVersionCode
+        }
+    }
 }
 
 dependencies {
