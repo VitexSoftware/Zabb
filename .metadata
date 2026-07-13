@@ -21,12 +21,6 @@ migration:
     - platform: ios
       create_revision: 603104015dd692ea3403755b55d07813d5cf8965
       base_revision: 603104015dd692ea3403755b55d07813d5cf8965
-    - platform: linux
-      create_revision: 603104015dd692ea3403755b55d07813d5cf8965
-      base_revision: 603104015dd692ea3403755b55d07813d5cf8965
-    - platform: web
-      create_revision: 603104015dd692ea3403755b55d07813d5cf8965
-      base_revision: 603104015dd692ea3403755b55d07813d5cf8965
 
   # User provided section
 

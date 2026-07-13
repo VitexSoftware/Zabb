@@ -2,7 +2,7 @@
 
 ![Zabbix logo](assets/zabb.svg?raw=true)
 
-Zabb is a Flutter-based client for Zabbix monitoring system, enabling users to monitor and manage Zabbix resources from mobile devices, desktop, and web browsers.
+Zabb is a Flutter-based Android client for the Zabbix monitoring system, enabling users to monitor and manage Zabbix resources from their mobile device.
 
 ## Features
 
@@ -32,17 +32,6 @@ Zabb is a Flutter-based client for Zabbix monitoring system, enabling users to m
 - **F-Droid**: Submission in progress
 - Requires Android 5.0+ 
 - Enable "Unknown Sources" for GitHub APK installation
-
-### 🐧 Linux Desktop  
-- **[Download DEB Package](https://github.com/VitexSoftware/Zabb/releases/download/v0.3.0/zabb_0.3.0-1_amd64.deb)** (8.3MB)
-- For Debian/Ubuntu 64-bit systems
-- Install: `sudo dpkg -i zabb_0.3.0-1_amd64.deb`
-
-### 🌐 Web Version
-- Access Zabb directly in your browser (no installation required)
-- Full compatibility with Chrome, Firefox, Safari, and Edge
-- All core features available except background monitoring
-- Build yourself: `flutter build web --release`
 
 ### 📦 All Releases
 - **[View All Releases](https://github.com/VitexSoftware/Zabb/releases)** on GitHub
@@ -135,58 +124,9 @@ lib/
 
 ## Building for Release
 
-### Android
-
 ```bash
 flutter build apk --release
 ```
-
-### Linux Desktop
-
-```bash
-flutter build linux --release
-```
-
-### Web
-
-```bash
-flutter build web --release
-```
-
-The web build will be output to `build/web/`. You can serve it with any static web server:
-
-```bash
-# Example using Python's built-in server
-cd build/web
-python3 -m http.server 8000
-```
-
-Then visit `http://localhost:8000` in your browser.
-
-## Platform Support
-
-Zabb works on multiple platforms with varying feature sets:
-
-### All Platforms
-✅ Zabbix authentication and login
-✅ Real-time problem monitoring
-✅ Problem filtering and sorting
-✅ Problem acknowledgment and closure
-✅ Trigger disable functionality
-✅ Bundled audio alerts
-✅ Configuration persistence
-
-### Mobile & Desktop Only
-📱 Background monitoring (when app is closed)
-📱 System notifications
-📱 Custom sound file uploads
-📱 Battery optimization management
-
-### Web Limitations
-⚠️ **Browser tab must remain open** for auto-refresh and alerts
-⚠️ **No system notifications** (alerts logged to browser console)
-⚠️ **Bundled sounds only** (no custom file uploads)
-⚠️ **No background monitoring** when tab is inactive
 
 ## API Compatibility
 
@@ -207,6 +147,10 @@ Zabb works on multiple platforms with varying feature sets:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Changelog
+
+### v0.6.5 (2026-07-13)
+
+- **Dropped Linux desktop and Web platform support** - Zabb is now Android-only. This removes the `linux/`, `web/`, and `debian-package/` build targets and simplifies the codebase by removing platform-conditional (`kIsWeb`) branches throughout. If you were using the Linux or Web build, the last available release remains on GitHub, but it will not receive further updates.
 
 ### v0.6.3 (2026-07-11)
 

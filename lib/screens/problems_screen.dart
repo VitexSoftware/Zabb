@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -2198,20 +2197,6 @@ class _NotificationConfigScreenState extends State<_NotificationConfigScreen> {
   }
 
   Future<String?> _pickCustomSoundFile() async {
-    // Custom file upload is not available on web
-    if (kIsWeb) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Custom sound files are only available on mobile platforms.'),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-      return null;
-    }
-    
-    // Mobile-only code - not executed on web
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.audio,

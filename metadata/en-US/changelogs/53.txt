@@ -1,0 +1,2 @@
+• Drop Linux desktop and Web platform support - Zabb is now Android-only
+• Simplify codebase by removing platform-conditional (web) code branches

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zabb/screens/problems_screen.dart';
@@ -14,18 +13,16 @@ import 'services/notification_handler_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize background monitoring services (mobile only)
-  if (!kIsWeb) {
-    await ZabbixBackgroundTaskManager.initialize();
-    await NotificationService.instance.initialize();
+  // Initialize background monitoring services
+  await ZabbixBackgroundTaskManager.initialize();
+  await NotificationService.instance.initialize();
 
-    // Check if the app was launched from a notification
-    final launchPayload = await NotificationService.instance.getLaunchNotification();
-    if (launchPayload != null) {
-      NotificationHandlerService.instance.handleNotification(launchPayload);
-    }
+  // Check if the app was launched from a notification
+  final launchPayload = await NotificationService.instance.getLaunchNotification();
+  if (launchPayload != null) {
+    NotificationHandlerService.instance.handleNotification(launchPayload);
   }
-  
+
   runApp(const ZabbixApp());
 }
 
@@ -207,12 +204,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _startBackgroundMonitoring() async {
-    // Background monitoring is not available on web
-    if (kIsWeb) {
-      debugPrint('Background monitoring is not available on web platform');
-      return;
-    }
-    
     if (_backgroundMonitoringStarted) {
       debugPrint('Background monitoring already started, skipping...');
       return;
