@@ -63,6 +63,14 @@ android {
             signingConfig = hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
+
+    // AGP embeds a "Dependency metadata" block in the APK signing block by
+    // default (for Play Store's dependency reporting). F-Droid's scanner
+    // flags this as an unwanted extra signing block, so disable it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 flutter {

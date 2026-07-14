@@ -1,0 +1,1 @@
+• Disable AGP dependency-metadata embedding in release APKs (build/reproducibility cleanup, no user-facing change)
