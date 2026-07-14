@@ -46,3 +46,8 @@ app.*.map.json
 *.apk
 .vscode/settings.json
 
+# Release signing - never commit
+/android/key.properties
+*.jks
+*.keystore
+

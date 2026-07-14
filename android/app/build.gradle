@@ -1,10 +1,24 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import java.util.Properties
 
 plugins {
     id "com.android.application"
     id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
+}
+
+// Release signing key lives outside this repo and android/key.properties is
+// git-ignored, so this file is absent on F-Droid's build server (and for any
+// other contributor). Fall back to debug signing when it's missing so those
+// builds still succeed - F-Droid re-signs with its own key when publishing
+// anyway, and its "reproducible build" check compares unsigned APK content,
+// not signature bytes.
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -33,11 +47,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
 }
