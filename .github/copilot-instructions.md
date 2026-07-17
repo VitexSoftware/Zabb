@@ -104,3 +104,104 @@ Before starting a new task in the above plan, update progress in the plan.
 - Work through each checklist item systematically.
 - Keep communication concise and focused.
 - Follow development best practices.
+
+## F-Droid Release Process
+
+Zabb is submitted to F-Droid. Tracking: RFP issue
+[fdroid/rfp#3445](https://gitlab.com/fdroid/rfp/-/issues/3445), build recipe MR
+[fdroid/fdroiddata!37096](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/37096).
+The metadata lives in a fork at `gitlab.com/vitexus/fdroiddata`
+(branch `com.vitexsoftware.zabb`, file `metadata/com.vitexsoftware.zabb.yml`),
+cloned locally at `~/Projects/F-Droid/fdroiddata`.
+
+### What every release needs
+
+1. **Tagged release**: `pubspec.yaml`'s `version:` field uses a `+N` build
+   number that increments every release (e.g. `0.6.7+7`). F-Droid derives its
+   `versionCode` from this via `UpdateCheckData` regex — don't reuse a build
+   number. Tag as `vX.Y.Z` matching the version name.
+2. **`pubspec.lock` must be in sync with `pubspec.yaml`**. F-Droid's build
+   recipe runs `flutter pub get --enforce-lockfile`, which fails hard on any
+   drift (unlike a plain `pub get`, which would silently just update the
+   lock). Regenerate and commit `pubspec.lock` before tagging if `pubspec.yaml`
+   dependency constraints changed.
+3. **Flutter version pin**: the build recipe extracts the Flutter version from
+   `.github/workflows/build.yml`'s `flutter-version` field at build time —
+   keep that current.
+4. **Real signing key**: releases are signed with a dedicated 4096-bit RSA key
+   (not the shared Android debug key). The keystore lives outside this repo at
+   `~/.keystores/zabb-release.jks`, backed up (password + file) in Vaultwarden
+   under "Zabb Android Release Signing Key". It's wired in via a git-ignored
+   `android/key.properties` (see `android/app/build.gradle` — falls back to
+   debug signing when that file is absent, which is what happens on F-Droid's
+   own build server; they re-sign with their own key when publishing anyway).
+
+### ABI-split APKs
+
+F-Droid builds three separate, smaller APKs per release instead of one
+universal one. `android/app/build.gradle` computes a distinct `versionCode`
+per ABI: `baseVersionCode * 10 + abiDigit`, where
+`armeabi-v7a=1, arm64-v8a=2, x86_64=3` (see the `abiCodes` map). The F-Droid
+metadata has one `Builds:` entry per ABI/versionCode, each running
+`flutter build apk --release --split-per-abi --target-platform="android-*"`.
+
+### Reproducible builds
+
+The metadata sets `Binaries:` and `AllowedAPKSigningKeys:` so F-Droid verifies
+its own build matches a reference APK you publish. This only works if the
+reference APK is byte-identical to F-Droid's build — Flutter's Dart AOT
+compiler embeds the absolute source checkout path into the compiled native
+library (`lib/*/libapp.so`), so **the reference APK must be built from the
+exact same path F-Droid's build server uses**: `/home/vagrant/build/com.vitexsoftware.zabb`.
+
+To build a matching reference APK locally:
+
+```bash
+sudo mkdir -p /home/vagrant/build && sudo chown -R $(whoami) /home/vagrant   # one-time
+rm -rf /home/vagrant/build/com.vitexsoftware.zabb
+mkdir -p /home/vagrant/build/com.vitexsoftware.zabb
+git archive vX.Y.Z | tar -x -C /home/vagrant/build/com.vitexsoftware.zabb
+cp android/key.properties /home/vagrant/build/com.vitexsoftware.zabb/android/key.properties
+chmod 600 /home/vagrant/build/com.vitexsoftware.zabb/android/key.properties
+chmod -R go-rwx /home/vagrant/build/com.vitexsoftware.zabb   # key.properties has real credentials
+cd /home/vagrant/build/com.vitexsoftware.zabb
+flutter build apk --release --split-per-abi --target-platform="android-arm"    # armeabi-v7a
+flutter build apk --release --split-per-abi --target-platform="android-arm64" # arm64-v8a
+flutter build apk --release --split-per-abi --target-platform="android-x64"   # x86_64
+```
+
+Then verify each APK is signed with the real key (not debug) before
+publishing: `apksigner verify --print-certs <apk>`.
+
+The F-Droid build recipe itself does **not** need a matching move/`cd` dance —
+their infrastructure (and the MR's GitLab CI runner) already checks out
+natively at that exact path.
+
+### GitHub release naming
+
+Upload each ABI's APK as `zabb-<versionCode>.apk` (e.g. `zabb-71.apk` for
+armeabi-v7a versionCode 71) on the GitHub release for that tag. This matches
+the metadata's `Binaries:` template:
+`https://github.com/VitexSoftware/Zabb/releases/download/v%v/zabb-%c.apk`.
+
+### Release checklist
+
+1. Bump `pubspec.yaml` version (`+N` build number), regenerate `pubspec.lock`
+   if needed, add F-Droid changelog files at
+   `metadata/en-US/changelogs/<versionCode>.txt` for each of the 3 ABI codes.
+2. Run tests (`flutter test`), commit, push to `main`, tag `vX.Y.Z`, push tag.
+3. Build the 3 reference APKs from `/home/vagrant/build/com.vitexsoftware.zabb`
+   as above; verify signatures.
+4. Publish a GitHub release for the tag with the 3 APKs named
+   `zabb-<versionCode>.apk`.
+5. In `~/Projects/F-Droid/fdroiddata`, add/update the `Builds:` entries (3 per
+   release, one per ABI) and bump `CurrentVersion`/`CurrentVersionCode` in
+   `metadata/com.vitexsoftware.zabb.yml`. Run `fdroid rewritemeta
+   com.vitexsoftware.zabb` and `fdroid lint com.vitexsoftware.zabb`.
+6. Verify locally: `fdroid build --force --test com.vitexsoftware.zabb:<versionCode>`
+   for each ABI — should report "compared built binary to supplied reference
+   binary successfully".
+7. Commit, push to the `com.vitexsoftware.zabb` branch of the fork
+   (`~/Projects/F-Droid/fdroiddata`), which updates MR !37096 and triggers its
+   CI pipeline. Confirm all jobs pass (`fdroid build`, `check apk`, lint,
+   schema validation, etc.) before considering the release done.
