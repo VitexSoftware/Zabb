@@ -11,6 +11,7 @@ import 'package:file_picker/file_picker.dart';
 import '../services/sound_service.dart';
 import '../services/notification_handler_service.dart';
 import '../services/zabbix_polling_service.dart';
+import '../api/zabbix_api.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // Recovery sounds are low-urgency: unlike problem alerts, they must not
@@ -721,7 +722,33 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
             // Print errors to stdout for easier debugging on Linux
             // ignore: avoid_print
             debugPrint('ProblemsScreen error: ${snapshot.error}');
-            return Center(child: Text('Error: ${snapshot.error}'));
+            final error = snapshot.error;
+            final message = error is ZabbixApiException ? error.friendlyMessage : 'Error: $error';
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      error is ZabbixApiException && error.isPermissionError
+                          ? Icons.lock_outline
+                          : Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(message, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _refreshData,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
           final items = snapshot.data ?? const [];
           
