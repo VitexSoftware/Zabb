@@ -1,0 +1,2 @@
+• FIX: Show a friendly, actionable message when your Zabbix account's role has API access disabled, instead of a raw error dump (#10)
+• Renamed the stacked-popup "Close All" button to "Dismiss All" to make clear it only closes on-device notification dialogs, not Zabbix problems/events

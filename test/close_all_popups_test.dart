@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Tests for the "Close All" popup dismiss functionality.
+/// Tests for the "Dismiss All" popup dismiss functionality.
 ///
-/// These tests verify the close-all behavior using a standalone widget
+/// These tests verify the dismiss-all behavior using a standalone widget
 /// that mirrors the popup stacking logic from ProblemsScreen, without
-/// requiring the full Zabbix API / AuthService dependencies.
+/// requiring the full Zabbix API / AuthService dependencies. This only
+/// dismisses local notification dialogs on-device and has no effect on
+/// Zabbix problem/event state on the server.
 
 /// A minimal widget that simulates stacking problem popup dialogs
-/// with the same close-all logic as ProblemsScreen._showNewProblemPopup.
+/// with the same dismiss-all logic as ProblemsScreen._showNewProblemPopup.
 class _PopupTestWidget extends StatefulWidget {
   const _PopupTestWidget();
 
@@ -40,7 +42,7 @@ class _PopupTestWidgetState extends State<_PopupTestWidget> {
                   openPopupCount = 0;
                 });
               },
-              child: Text('Close All ($openPopupCount)'),
+              child: Text('Dismiss All ($openPopupCount)'),
             ),
           TextButton(
             onPressed: () {
@@ -76,8 +78,8 @@ class _PopupTestWidgetState extends State<_PopupTestWidget> {
 }
 
 void main() {
-  group('Problem popup Close All button', () {
-    testWidgets('single popup shows only Dismiss, no Close All',
+  group('Problem popup Dismiss All button', () {
+    testWidgets('single popup shows only Dismiss, no Dismiss All',
         (WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(home: _PopupTestWidget()));
 
@@ -89,11 +91,11 @@ void main() {
       expect(find.text('New Problem Detected'), findsOneWidget);
       expect(find.text('Dismiss'), findsOneWidget);
 
-      // "Close All" should NOT be visible with only 1 popup
-      expect(find.textContaining('Close All'), findsNothing);
+      // "Dismiss All" should NOT be visible with only 1 popup
+      expect(find.textContaining('Dismiss All'), findsNothing);
     });
 
-    testWidgets('two stacked popups show Close All button on the top one',
+    testWidgets('two stacked popups show Dismiss All button on the top one',
         (WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(home: _PopupTestWidget()));
 
@@ -109,11 +111,11 @@ void main() {
       state.showProblemPopup('Second Problem');
       await tester.pumpAndSettle();
 
-      // "Close All (2)" should be visible on the topmost popup
-      expect(find.text('Close All (2)'), findsOneWidget);
+      // "Dismiss All (2)" should be visible on the topmost popup
+      expect(find.text('Dismiss All (2)'), findsOneWidget);
     });
 
-    testWidgets('Close All dismisses all stacked popups',
+    testWidgets('Dismiss All dismisses all stacked popups',
         (WidgetTester tester) async {
       await tester.pumpWidget(const MaterialApp(home: _PopupTestWidget()));
 
@@ -129,10 +131,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(state.openPopupCount, 3);
-      expect(find.text('Close All (3)'), findsOneWidget);
+      expect(find.text('Dismiss All (3)'), findsOneWidget);
 
-      // Tap "Close All (3)"
-      await tester.tap(find.text('Close All (3)'));
+      // Tap "Dismiss All (3)"
+      await tester.tap(find.text('Dismiss All (3)'));
       await tester.pumpAndSettle();
 
       // All dialogs should be dismissed
@@ -166,8 +168,8 @@ void main() {
       expect(state.openPopupCount, 1);
       expect(find.text('New Problem Detected'), findsOneWidget);
 
-      // The remaining popup should NOT show "Close All" (only 1 left)
-      expect(find.textContaining('Close All'), findsNothing);
+      // The remaining popup should NOT show "Dismiss All" (only 1 left)
+      expect(find.textContaining('Dismiss All'), findsNothing);
     });
   });
 }

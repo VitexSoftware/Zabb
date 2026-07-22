@@ -523,9 +523,9 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
           if (_openPopupCount > 1)
             TextButton(
               onPressed: () {
-                _closeAllPopups(dialogContext);
+                _dismissAllPopups(dialogContext);
               },
-              child: Text('Close All ($_openPopupCount)'),
+              child: Text('Dismiss All ($_openPopupCount)'),
             ),
           TextButton(
             onPressed: () {
@@ -551,7 +551,7 @@ class _ProblemsScreenState extends State<ProblemsScreen> {
     );
   }
 
-  void _closeAllPopups(BuildContext dialogContext) {
+  void _dismissAllPopups(BuildContext dialogContext) {
     Navigator.of(dialogContext).popUntil((route) => route is! DialogRoute);
     setState(() {
       _openPopupCount = 0;

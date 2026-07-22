@@ -19,7 +19,7 @@ Zabb is a Flutter-based Android client for the Zabbix monitoring system, enablin
 - 💾 **Persistent Settings** - User preferences and sorting maintained across sessions
 - ⚙️ **Configuration Screen** - Comprehensive settings with ignore filters and notification setup
 - 🚨 **Problem Popup Alerts** - Immediate popup notifications when new problems are detected
-- 🗑️ **Close All Popups** - Dismiss all stacked problem popups at once to quickly return to the dashboard
+- 🗑️ **Dismiss All Popups** - Close all stacked notification popups on-device at once to quickly return to the dashboard (does not close/resolve the underlying Zabbix problems)
 - ✅ **Recovery State Handling** - Visual indicators for recovered problems with optional filtering and notifications
 
 ## Download
@@ -147,6 +147,11 @@ flutter build apk --release
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Changelog
+
+### v0.6.8 (2026-07-22)
+
+- **FIX: Friendly message for Zabbix API permission errors** - When a user's Zabbix role has API access disabled entirely (JSON-RPC code -32500), the app now shows an actionable message ("Ask your Zabbix administrator to enable API access for your role") with a Retry button, instead of dumping the raw exception (#10)
+- **Renamed "Close All" to "Dismiss All"** on stacked problem popups - the old label was easy to confuse with closing/resolving a Zabbix problem; it only dismisses local notification dialogs on the device and has no effect on Zabbix problem/event state
 
 ### v0.6.5 (2026-07-13)
 
