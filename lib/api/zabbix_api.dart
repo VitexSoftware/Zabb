@@ -252,6 +252,34 @@ class ZabbixApiException implements Exception {
   ZabbixApiException(this.message, this.details);
   final String message;
   final Map<String, dynamic> details;
+
+  /// The Zabbix JSON-RPC error code, if this wraps an `{"error": {...}}` response.
+  int? get code {
+    final raw = details['code'];
+    if (raw is int) return raw;
+    return int.tryParse(raw?.toString() ?? '');
+  }
+
+  /// True when Zabbix rejected the call because the authenticated user's role
+  /// isn't allowed to call the API at all (JSON-RPC code -32500 with a
+  /// "No permissions to call ..." data message). This is a role-level
+  /// "API access" toggle in Zabbix, not a host-group permission gap, so it
+  /// affects every API method for that account, not just the one that failed.
+  bool get isPermissionError =>
+      code == -32500 &&
+      (details['data']?.toString().toLowerCase().contains('no permissions') ?? false);
+
+  /// A message safe to show directly to end users, instead of the raw
+  /// JSON-RPC error payload.
+  String get friendlyMessage {
+    if (isPermissionError) {
+      return 'Your Zabbix account is not allowed to use the API.\n\n'
+          'Ask your Zabbix administrator to enable "Enabled" under API access '
+          'for your user role (Administration → Users → Roles), then try again.';
+    }
+    return message;
+  }
+
   @override
   String toString() => 'ZabbixApiException: $message ${jsonEncode(details)}';
 }
