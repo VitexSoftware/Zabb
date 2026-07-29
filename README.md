@@ -1,6 +1,7 @@
 # Zabb - Flutter Client for Zabbix
 
 ![Zabbix logo](assets/zabb.svg?raw=true)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Zabb is a Flutter-based Android client for the Zabbix monitoring system, enabling users to monitor and manage Zabbix resources from their mobile device.
 
