@@ -22,12 +22,22 @@ class AuthService {
 
   Future<String> login() async {
     final prefs = await SharedPreferences.getInstance();
+    final api = await _ensureApi();
+
+    // A pre-issued Zabbix API token skips user.login entirely (no
+    // username/password needed) — Zabbix accepts a valid API token as the
+    // auth value for any method.
+    final apiToken = prefs.getString('zbx_token');
+    if (apiToken != null && apiToken.isNotEmpty) {
+      api.useApiToken(apiToken);
+      return apiToken;
+    }
+
     final user = prefs.getString('zbx_user');
     final password = prefs.getString('zbx_password');
     if (user == null || password == null) {
       throw StateError('Credentials not configured');
     }
-    final api = await _ensureApi();
     // Map stored 'user' to API 'username'
     return api.login(username: user, password: password);
   }

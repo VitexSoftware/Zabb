@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io' show HttpClient;
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'dart:io' show HttpClient, InternetAddress;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
@@ -22,22 +22,83 @@ class ZabbixApi {
   String? _authToken;
   int _requestId = 1;
 
+  // Cached IP resolved for the configured server's hostname, used only as a
+  // fallback when a live DNS lookup fails (e.g. Android restricting DNS for a
+  // backgrounded foreground-service). Generic for any server, never hardcoded.
+  String? _cachedIp;
+  DateTime? _cachedIpAt;
+  static const _cachedIpTtl = Duration(hours: 24);
+
   bool get isAuthenticated => _authToken != null;
   String? get authToken => _authToken;
-  Uri get _endpoint {
+
+  /// Authenticate using a pre-issued Zabbix API token instead of
+  /// username/password, skipping `user.login`. Zabbix API tokens are valid
+  /// as the `auth` value (sent as `Authorization: Bearer <token>`) for any
+  /// API method, so this is equivalent to a successful login.
+  void useApiToken(String token) {
+    _authToken = token;
+  }
+
+  /// Seeds the resolved-IP cache directly, bypassing a real DNS lookup.
+  /// Test-only hook for exercising the DNS-failure fallback deterministically.
+  @visibleForTesting
+  void seedCachedIpForTest(String ip) {
+    _cachedIp = ip;
+    _cachedIpAt = DateTime.now();
+  }
+
+  /// Builds the request URI. When [useCachedIp] is true and a cached IP is
+  /// available, the hostname is swapped for that IP (with the original
+  /// hostname sent back via the `Host` header for vhost routing) — used only
+  /// as a fallback after a live DNS lookup has already failed.
+  Uri _endpointFor({required bool useCachedIp}) {
     var base = serverUrl.trim();
     base = base.replaceAll(RegExp(r"/+$"), "");
-    
-    // Add IP fallback for zabbix.spojenet.cz to bypass DNS issues
-    if (base.contains('zabbix.spojenet.cz')) {
-      base = base.replaceAll('zabbix.spojenet.cz', '77.87.240.70');
-      debugPrint('Using IP fallback: $base');
+
+    if (useCachedIp && _cachedIp != null) {
+      final host = _configuredHost;
+      if (host != null && !_isIpAddress(host)) {
+        base = base.replaceFirst(host, _cachedIp!);
+      }
     }
-    
+
     if (base.endsWith('/api_jsonrpc.php')) {
       return Uri.parse(base);
     }
     return Uri.parse('$base/api_jsonrpc.php');
+  }
+
+  static bool _isIpAddress(String host) => RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host);
+
+  String? get _configuredHost {
+    final base = serverUrl.trim().replaceAll(RegExp(r"/+$"), "");
+    return RegExp(r'^https?://([^/:]+)').firstMatch(base)?.group(1);
+  }
+
+  /// Resolves the configured hostname to an IP and caches it, so that a
+  /// later DNS failure (e.g. Android deprioritizing DNS lookups for a
+  /// backgrounded foreground service) can fall back to a recently-known-good
+  /// IP instead of failing outright. Safe to call opportunistically after
+  /// any successful request; failures here are silently ignored.
+  Future<void> _refreshCachedIp() async {
+    final host = _configuredHost;
+    if (host == null || _isIpAddress(host)) return;
+    if (_cachedIp != null &&
+        _cachedIpAt != null &&
+        DateTime.now().difference(_cachedIpAt!) < _cachedIpTtl) {
+      return;
+    }
+    try {
+      final addresses = await InternetAddress.lookup(host);
+      if (addresses.isNotEmpty) {
+        _cachedIp = addresses.first.address;
+        _cachedIpAt = DateTime.now();
+        debugPrint('Cached IP for $host: $_cachedIp');
+      }
+    } catch (_) {
+      // No connectivity to resolve right now; keep any existing cache entry.
+    }
   }
 
   Future<String> login({required String username, required String password}) async {
@@ -62,6 +123,22 @@ class ZabbixApi {
     }
   }
 
+  Future<http.Response> _attempt(String body, String? auth, {required bool useCachedIp}) {
+    final endpoint = _endpointFor(useCachedIp: useCachedIp);
+    final host = _configuredHost;
+    debugPrint('Making request to: $endpoint');
+    return _client.post(
+      endpoint,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (auth != null && auth.isNotEmpty) 'Authorization': 'Bearer $auth',
+        if (useCachedIp && host != null) 'Host': host,
+      },
+      body: body,
+    ).timeout(const Duration(seconds: 30));
+  }
+
   Future<Map<String, dynamic>> _post(String method, Map<String, dynamic> params, {String? auth}) async {
     final body = jsonEncode({
       'jsonrpc': '2.0',
@@ -69,21 +146,25 @@ class ZabbixApi {
       'params': params,
       'id': _requestId++,
     });
-    
-    debugPrint('Making request to: $_endpoint');
+
     debugPrint('Method: $method');
-    
+
     try {
-      final resp = await _client.post(
-        _endpoint,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          if (auth != null && auth.isNotEmpty) 'Authorization': 'Bearer $auth',
-        },
-        body: body,
-      ).timeout(const Duration(seconds: 30));
-      
+      http.Response resp;
+      try {
+        resp = await _attempt(body, auth, useCachedIp: false);
+        unawaited(_refreshCachedIp());
+      } catch (e) {
+        final msg = e.toString();
+        final isLookupFailure = msg.contains('SocketException') || msg.contains('Failed host lookup');
+        if (isLookupFailure && _cachedIp != null) {
+          debugPrint('DNS lookup failed, retrying via cached IP $_cachedIp');
+          resp = await _attempt(body, auth, useCachedIp: true);
+        } else {
+          rethrow;
+        }
+      }
+
       if (resp.statusCode != 200) {
         // Print to stdout for easier debugging on Linux
         // ignore: avoid_print
@@ -112,7 +193,7 @@ class ZabbixApi {
         userMessage = 'SSL certificate error. Server certificate may be invalid or self-signed.';
       }
       
-      throw ZabbixApiException(userMessage, {'original_error': e.toString(), 'endpoint': _endpoint.toString()});
+      throw ZabbixApiException(userMessage, {'original_error': e.toString(), 'endpoint': _endpointFor(useCachedIp: _cachedIp != null).toString()});
     }
   }
 

@@ -159,6 +159,13 @@ class ZabbixPollingService {
     }
 
     final prefs = await SharedPreferences.getInstance();
+    final apiToken = prefs.getString('zbx_token');
+    if (apiToken != null && apiToken.isNotEmpty) {
+      _api!.useApiToken(apiToken);
+      _cachedToken = apiToken;
+      return;
+    }
+
     final username = prefs.getString('zbx_user');
     final password = prefs.getString('zbx_password');
 

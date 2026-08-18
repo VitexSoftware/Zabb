@@ -158,11 +158,13 @@ class _LoginScreenState extends State<LoginScreen> {
       final server = prefs.getString('zbx_server') ?? '';
       final user = prefs.getString('zbx_user') ?? '';
       final pass = prefs.getString('zbx_password') ?? '';
+      final apiToken = prefs.getString('zbx_token') ?? '';
       final configured = prefs.getBool('zbx_configured') ?? false;
-      
+      final hasCredentials = apiToken.isNotEmpty || (user.isNotEmpty && pass.isNotEmpty);
+
       debugPrint('AutoLogin - Configured: $configured, Server: $server, User: $user');
-      
-      if (configured && server.isNotEmpty && user.isNotEmpty && pass.isNotEmpty) {
+
+      if (configured && server.isNotEmpty && hasCredentials) {
         debugPrint('AutoLogin - Attempting login...');
         final token = await AuthService.instance.login();
         if (!mounted) return;

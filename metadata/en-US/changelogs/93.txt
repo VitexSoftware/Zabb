@@ -1,0 +1,2 @@
+• FIX: Zabbix connection no longer breaks under Android's background DNS restrictions — the app now resolves and caches your server's IP itself and falls back to it only when a live DNS lookup fails, instead of a hardcoded IP for one server
+• Added optional Zabbix API token authentication as an alternative to username/password
