@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/zabbix_api.dart';
+import 'certificate_trust_store.dart';
 
 class AuthService {
   AuthService._();
@@ -16,8 +17,15 @@ class AuthService {
     if (server == null || server.isEmpty) {
       throw StateError('Server not configured');
     }
-    _api = ZabbixApi(server);
+    final trustedFingerprints = await CertificateTrustStore.loadTrustedFingerprints(server);
+    _api = ZabbixApi(server, trustedFingerprints: trustedFingerprints);
     return _api!;
+  }
+
+  /// Forces the next call to re-create the [ZabbixApi] client, e.g. after
+  /// the user has trusted a new server certificate.
+  void resetApi() {
+    _api = null;
   }
 
   Future<String> login() async {

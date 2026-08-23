@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zabb/api/zabbix_api.dart';
 import 'package:zabb/services/auth_service.dart';
+import 'package:zabb/services/certificate_trust_store.dart';
 
 class ConfigureServerScreen extends StatefulWidget {
   const ConfigureServerScreen({super.key});
@@ -42,9 +44,11 @@ class _ConfigureServerScreenState extends State<ConfigureServerScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('zbx_server', _serverController.text.trim());
+    final server = _serverController.text.trim();
+    await prefs.setString('zbx_server', server);
     await prefs.setString('zbx_user', _userController.text.trim());
     await prefs.setString('zbx_password', _passwordController.text);
+    AuthService.instance.resetApi();
     // Attempt login to validate credentials before marking configured
     String? error;
     try {
@@ -56,6 +60,15 @@ class _ConfigureServerScreenState extends State<ConfigureServerScreen> {
     }
     setState(() => _saving = false);
     if (!mounted) return;
+
+    if (error != null && _looksLikeCertificateError(error)) {
+      final trusted = await _offerToTrustCertificate(server);
+      if (trusted) {
+        // Certificate now trusted — retry with the same credentials.
+        return _save();
+      }
+    }
+
     if (error != null) {
       // Show a more detailed error dialog instead of just a snackbar
       showDialog(
@@ -83,6 +96,66 @@ class _ConfigureServerScreenState extends State<ConfigureServerScreen> {
         (route) => false,
       );
     }
+  }
+
+  bool _looksLikeCertificateError(String error) {
+    final lower = error.toLowerCase();
+    return lower.contains('certificate') ||
+        lower.contains('handshakeexception') ||
+        lower.contains('certificate_verify_failed');
+  }
+
+  /// Probes the server's presented certificate and, if the user confirms
+  /// its fingerprint, stores it as trusted for this host. Returns true if
+  /// the user chose to trust it.
+  Future<bool> _offerToTrustCertificate(String server) async {
+    final cert = await ZabbixApi.probeUntrustedCertificate(server);
+    if (cert == null || !mounted) return false;
+
+    final fingerprint = ZabbixApi.fingerprintOf(cert);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Untrusted Certificate'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'This server presented a certificate that isn\'t signed by a '
+                'recognized authority (e.g. a self-signed certificate). Only '
+                'trust it if you recognize this fingerprint, ideally verified '
+                'out-of-band with your Zabbix administrator.',
+              ),
+              const SizedBox(height: 12),
+              Text('Subject: ${cert.subject}', style: const TextStyle(fontSize: 12)),
+              Text('Issuer: ${cert.issuer}', style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 8),
+              SelectableText(
+                'SHA-256: $fingerprint',
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Trust This Certificate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return false;
+    await CertificateTrustStore.trust(server, fingerprint);
+    AuthService.instance.resetApi();
+    return true;
   }
 
   

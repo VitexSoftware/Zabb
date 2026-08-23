@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/zabbix_api.dart';
+import 'certificate_trust_store.dart';
 
 class ZabbixAlert {
   final String eventId;
@@ -147,7 +148,8 @@ class ZabbixPollingService {
       throw Exception('Zabbix server not configured');
     }
 
-    _api = ZabbixApi(server);
+    final trustedFingerprints = await CertificateTrustStore.loadTrustedFingerprints(server);
+    _api = ZabbixApi(server, trustedFingerprints: trustedFingerprints);
   }
 
   Future<void> _ensureAuthenticated() async {

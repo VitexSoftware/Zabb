@@ -21,3 +21,45 @@ jobs:
         with:
           name: zabb-release.apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+  # Only on a version tag: build the per-ABI splits F-Droid's reproducible
+  # build compares against (see Binaries: in fdroiddata's
+  # metadata/com.vitexsoftware.zabb.yml) and publish them as a GitHub
+  # Release named zabb-<versionCode>.apk, matching that URL pattern
+  # (releases/download/v%v/zabb-%c.apk).
+  release-android:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+      - run: flutter pub get
+      - run: flutter build apk --release --split-per-abi
+
+      - name: Rename split APKs to match F-Droid's Binaries pattern
+        run: |
+          set -euo pipefail
+          buildNumber=$(sed -nE 's/^version:\s*.+\+([0-9]+)\s*$/\1/p' pubspec.yaml)
+          if [[ -z "$buildNumber" ]]; then
+            echo "Could not extract build number from pubspec.yaml" >&2
+            exit 1
+          fi
+          declare -A abiCodes=( [armeabi-v7a]=1 [arm64-v8a]=2 [x86_64]=3 )
+          mkdir -p release-assets
+          for abi in "${!abiCodes[@]}"; do
+            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            versionCode=$(( buildNumber * 10 + abiCodes[$abi] ))
+            dest="release-assets/zabb-${versionCode}.apk"
+            cp "$src" "$dest"
+            echo "Prepared $dest ($abi, versionCode $versionCode)"
+          done
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/zabb-*.apk
+          generate_release_notes: true

@@ -1,20 +1,56 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io' show HttpClient, InternetAddress;
+import 'dart:io' show HttpClient, HttpClientRequest, InternetAddress, X509Certificate;
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 class ZabbixApi {
-  ZabbixApi(this.serverUrl, {http.Client? client}) : _client = client ?? _createClient();
+  /// [trustedFingerprints] are SHA-256 fingerprints (hex, as returned by
+  /// [fingerprintOf]) of certificates the user has explicitly chosen to
+  /// trust for this server, e.g. a self-signed cert. Only certificates
+  /// matching one of these are accepted when standard chain validation
+  /// fails; anything else is rejected as normal.
+  ZabbixApi(this.serverUrl, {http.Client? client, Set<String>? trustedFingerprints})
+      : _client = client ?? _createClient(trustedFingerprints ?? const <String>{});
 
-  static http.Client _createClient() {
-    // Accept self-signed certificates
+  static http.Client _createClient(Set<String> trustedFingerprints) {
     final httpClient = HttpClient();
-    httpClient.badCertificateCallback = (cert, host, port) => true;
+    httpClient.badCertificateCallback = (cert, host, port) =>
+        trustedFingerprints.contains(fingerprintOf(cert));
     httpClient.connectionTimeout = const Duration(seconds: 30);
-    
+
     return IOClient(httpClient);
+  }
+
+  /// SHA-256 fingerprint (hex) of an X.509 certificate's DER encoding, used
+  /// as the pinning key for user-trusted self-signed certificates.
+  static String fingerprintOf(X509Certificate cert) => sha256.convert(cert.der).toString();
+
+  /// Attempts a connection to [serverUrl] and returns the certificate the
+  /// server presented if it fails standard validation (e.g. self-signed),
+  /// without trusting it. Returns null if the server's certificate is
+  /// already trusted (no bad-certificate callback triggered) or the
+  /// connection failed for an unrelated reason.
+  static Future<X509Certificate?> probeUntrustedCertificate(String serverUrl) async {
+    X509Certificate? captured;
+    final httpClient = HttpClient()
+      ..badCertificateCallback = (cert, host, port) {
+        captured = cert;
+        return false;
+      }
+      ..connectionTimeout = const Duration(seconds: 10);
+    try {
+      final HttpClientRequest request = await httpClient.getUrl(Uri.parse(serverUrl.trim()));
+      await request.close();
+    } catch (_) {
+      // Expected when the certificate is rejected, or any other network
+      // failure; either way `captured` already holds what we need (or null).
+    } finally {
+      httpClient.close(force: true);
+    }
+    return captured;
   }
 
   final String serverUrl; // e.g. https://your-zabbix.example.com
@@ -71,8 +107,13 @@ class ZabbixApi {
 
   static bool _isIpAddress(String host) => RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host);
 
-  String? get _configuredHost {
-    final base = serverUrl.trim().replaceAll(RegExp(r"/+$"), "");
+  String? get _configuredHost => hostFromUrl(serverUrl);
+
+  /// Extracts the hostname from a Zabbix server URL, e.g.
+  /// `https://zabbix.example.com:8443/` -> `zabbix.example.com`. Used as the
+  /// key for per-server trusted-certificate storage.
+  static String? hostFromUrl(String url) {
+    final base = url.trim().replaceAll(RegExp(r"/+$"), "");
     return RegExp(r'^https?://([^/:]+)').firstMatch(base)?.group(1);
   }
 
