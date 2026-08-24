@@ -38,7 +38,28 @@ jobs:
         with:
           flutter-version: '3.41.7'
       - run: flutter pub get
+
+      - name: Set up release signing
+        env:
+          STORE_FILE_BASE64: ${{ secrets.STORE_FILE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$STORE_FILE_BASE64" | base64 -d > android/app/zabb-release.jks
+          cat > android/key.properties <<EOF
+          storeFile=zabb-release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
       - run: flutter build apk --release --split-per-abi
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f android/app/zabb-release.jks android/key.properties
 
       - name: Rename split APKs to match F-Droid's Binaries pattern
         run: |
