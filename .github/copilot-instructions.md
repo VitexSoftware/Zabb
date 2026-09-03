@@ -149,10 +149,21 @@ metadata has one `Builds:` entry per ABI/versionCode, each running
 
 The metadata sets `Binaries:` and `AllowedAPKSigningKeys:` so F-Droid verifies
 its own build matches a reference APK you publish. This only works if the
-reference APK is byte-identical to F-Droid's build — Flutter's Dart AOT
-compiler embeds the absolute source checkout path into the compiled native
-library (`lib/*/libapp.so`), so **the reference APK must be built from the
-exact same path F-Droid's build server uses**: `/home/vagrant/build/com.vitexsoftware.zabb`.
+reference APK is byte-identical to F-Droid's build, which needs two things to
+match between your local build and F-Droid's build server:
+
+1. **The absolute source checkout path** — Flutter's Dart AOT compiler embeds
+   the absolute source checkout path into the compiled native library
+   (`lib/*/libapp.so`), so **the reference APK must be built from the exact
+   same path F-Droid's build server uses**: `/home/vagrant/build/com.vitexsoftware.zabb`.
+2. **The visible CPU core count** — `gen_snapshot`'s AOT compilation is
+   parallelized, so a different core count between machines produces a
+   functionally-identical but byte-different `libapp.so` even from the exact
+   same source at the exact same path (confirmed the hard way: MR !37096's
+   pipeline failed with only `libapp.so` differing, everything else in the APK
+   matched). The `Builds:` recipe in fdroiddata now pins F-Droid's CI to 4
+   visible cores via a `sudo:` step (`CPUS_MAX=4`), so the reference APK must
+   be built with the same 4 cores visible.
 
 To build a matching reference APK locally:
 
@@ -164,10 +175,21 @@ git archive vX.Y.Z | tar -x -C /home/vagrant/build/com.vitexsoftware.zabb
 cp android/key.properties /home/vagrant/build/com.vitexsoftware.zabb/android/key.properties
 chmod 600 /home/vagrant/build/com.vitexsoftware.zabb/android/key.properties
 chmod -R go-rwx /home/vagrant/build/com.vitexsoftware.zabb   # key.properties has real credentials
+
+# Pin visible CPU cores to 4, matching fdroiddata's CPUS_MAX=4 build step.
+# This offlines real cores machine-wide until re-enabled below - don't run
+# anything else concurrently on this machine while building.
+export CPUS_MAX=4
+export CPUS=$(getconf _NPROCESSORS_ONLN)
+for (( c=CPUS_MAX; c<CPUS; c++ )); do echo 0 | sudo tee /sys/devices/system/cpu/cpu$c/online; done
+
 cd /home/vagrant/build/com.vitexsoftware.zabb
 flutter build apk --release --split-per-abi --target-platform="android-arm"    # armeabi-v7a
 flutter build apk --release --split-per-abi --target-platform="android-arm64" # arm64-v8a
 flutter build apk --release --split-per-abi --target-platform="android-x64"   # x86_64
+
+# Re-enable the offlined cores.
+for (( c=CPUS_MAX; c<CPUS; c++ )); do echo 1 | sudo tee /sys/devices/system/cpu/cpu$c/online; done
 ```
 
 Then verify each APK is signed with the real key (not debug) before
